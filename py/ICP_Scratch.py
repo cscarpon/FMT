@@ -2,8 +2,8 @@ import open3d as o3d
 import numpy as np
 
 # Read .las files
-pcd1 = o3d.io.read_point_cloud("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2019.xyz")
-pcd2 = o3d.io.read_point_cloud("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2014.xyz")
+pcd1 = o3d.io.read_point_cloud("C:/Users/User/Downloads/GSR 6October2022-003.xyz")
+pcd2 = o3d.io.read_point_cloud("C:/Users/User/Downloads/GSR 5May2023-005.xyz")
 pcd3 = o3d.io.read_point_cloud("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2021.xyz")
 
 # Apply voxel downsampling for efficiency
