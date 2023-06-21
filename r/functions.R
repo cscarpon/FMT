@@ -58,3 +58,11 @@ plot_stats <- function(rast_stats) {
     theme_minimal() +
     scale_y_continuous(labels = comma)
 }
+
+is_empty <- function(raster) {
+    all(is.na(terra::values(raster)))
+}
+
+is_empty_sfc <- function(sfc) {
+    length(sfc) == 0
+}
