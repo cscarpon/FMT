@@ -1,15 +1,22 @@
 pc_obj <- setRefClass(
-  "las_obj",
+  "point_cloud_obj",
   fields = list(
     data = "data.frame",
     LPC = "LAS",
     CHM = "SpatRaster",
     DTM = "SpatRaster",
-    mask = "sf"
+    mask = "sfc",
+    filepath =  "character",
+    filename = "character"
   ),
   methods = list(
     initialize = function(file_path = character(0)) {
         lidR::set_lidr_threads(6)
+        .self$filepath <- file_path
+        .self$filename <- basename(file_path)
+        dummy_spat <- terra::rast(extent = terra::ext(0, 1, 0, 1), res=1, vals=NA)
+        .self$DTM <- dummy_spat
+        .self$CHM <- dummy_spat
         ext <- tools::file_ext(file_path)
         if (ext == "xyz") {
             .self$data <- read.table(file_path)
@@ -31,6 +38,11 @@ pc_obj <- setRefClass(
                                     Classification = .self$LPC@data$Classification
                                     )
       }
+      coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
+      mask <- concaveman(coords, concavity = 2, length_threshold = 0)
+      mask <- st_as_sfc(mask)
+      mask <- st_simplify(mask, preserveTopology = TRUE, dTolerance = 0.1)
+      .self$mask <- mask
     },
     set_crs = function(crs) {
       st_crs(.self$LPC) <- crs
@@ -44,14 +56,13 @@ pc_obj <- setRefClass(
                                     )
 
     },
-    get_mask = function() {
-      coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
-      coords_sample <- st_sample(coords, size = (nrow(coords)*.01), type = "regular")
-      buffer <- sf::st_buffer(coords_sample, 5)
-      union <- sf::st_union(buffer)
-      masked <- sf::st_buffer(union, -5)
-      .self$mask <- masked
-    },
+    # get_mask = function() {
+    #   coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
+    #   mask <- concaveman(coords, concavity = 2, length_threshold = 0)
+    #   mask <- st_as_sfc(mask)
+    #   mask <- st_simplify(mask, preserveTopology = TRUE, dTolerance = 0.1)
+    #   .self$mask <- mask
+    # },
     get_data = function() {
       return(.self$data)
     },
@@ -66,21 +77,24 @@ pc_obj <- setRefClass(
     },
     to_dtm = function(resolution = 0.5) {
       dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
-      dtm <- terra::rast(dtm)
       .self$DTM <- dtm
-      return(dtm)
+      print(".self$DTM after assignment:")
+      print(.self$DTM)
     },
-    to_chm = function(res = 0.5) {
+    to_chm = function(resolution = 0.5) {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
       dtm <- .self$DTM
       nlas <- lidR::normalize_height(.self$LPC, dtm)
-      chm <- lidR::rasterize_canopy(nlas, res, p2r(0.2, na.fill = tin()))
+      chm <- lidR::rasterize_canopy(nlas, resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
       .self$CHM <- clamp
       # Return the CHM
-      return(clamp)
+      #return(clamp) #uncomment this line if you are going throught he code line by line
+    },
+    save_mask = function(path) {
+      sf::st_write(.self$mask, path)
     },
     save_las = function(path) {
       lidR::writeLAS(.self$LPC, path)
@@ -93,3 +107,8 @@ pc_obj <- setRefClass(
     }
   )
 )
+
+
+# las2014 <- pc_obj$new("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2014.laz")
+# las2014$to_dtm()
+# plot(las2014$DTM)
