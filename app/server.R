@@ -232,9 +232,9 @@ server = function(input, output, session) {
 
           # Color palette
           bins <- c(1, 2, 3, 4, 5, NA)  # Specify your bins, in this case, 1 to 5 and NA
-          palette <- c("red", "orange", "white", "lightgreen", "darkgreen", "transparent")  # Color for each bin, NA mapped to transparent
+          palette <- c("red", "orange", "white", "lightgreen", "darkgreen", "black")  # Color for each bin, NA mapped to transparent
           labels <- c("Loss - Greater than 10m", "Loss - from 2.5m to 10m", "No change", "Gain - from 2.5m to 10m", "Gain - Greater than 10m", "Out of range")  # Labels for each bin
-          pal <- colorBin(palette = palette, bins = bins, na.color = "transparent")  # Create color palette function with colorBin
+          pal <- colorBin(palette = palette, bins = bins, na.color = "black")  # Create color palette function with colorBin
 
           diff_raster <- raster::raster(diff)
           values(diff_raster)[is.na(values(diff_raster))] <- NA  # Make sure NAs in diff are really NAs
