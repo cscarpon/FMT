@@ -66,14 +66,14 @@ pc_obj <- setRefClass(
     to_xyz = function(path) {
       write.table(.self$data[,c("X", "Y", "Z")], path, row.names=FALSE, col.names=FALSE, quote=FALSE, sep=" ")
     },
-    to_dtm = function(resolution = 0.5) {
+    to_dtm = function(resolution = 1) {
       dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
       mask <- terra::mask(dtm, terra::vect(.self$mask))
       .self$DTM <- mask
       print("Raster Info After assignment:")
       print(.self$DTM)
     },
-    to_chm = function(resolution = 0.5)  {
+    to_chm = function(resolution = 1)  {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
       dtm <- .self$DTM
@@ -95,7 +95,7 @@ pc_obj <- setRefClass(
     },
     save_chm = function(path) {
       terra::writeRaster(.self$CHM, path, overwrite = TRUE)
-    }
+    },
     save_pc = function(path) {
       save(.self, file = path, overwrite = TRUE)
     }
