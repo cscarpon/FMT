@@ -4,9 +4,9 @@ fluidPage(
     titlePanel("Tree Analyser 5000"),
     sidebarLayout(
       sidebarPanel(
-        fileInput("file1", "Choose first LAS file", accept = c(".las", ".laz", ".xyz")),
-        fileInput("file2", "Choose second LAS file", accept = c(".las", ".laz", ".xyz")),
-        numericInput("resolution", "Resolution:", value = 0.5),
+        fileInput("file1", "Choose first LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
+        fileInput("file2", "Choose second LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
+        numericInput("resolution", "Resolution:", value =1),
         numericInput("crs", "CRS:", value = 4326),
         textInput("out_dir", "Output directory:", value = paste0(getwd(),"/data/" )),
         actionButton("confirm", "Confirm Inputs"),
@@ -29,7 +29,9 @@ fluidPage(
           actionButton("save_las", "Save LAS", title = "Save the current LAS object"),
           actionButton("save_dtm", "Save DTM", title = "Save the current DTM"),
           actionButton("save_chm", "Save CHM", title = "Save the current CHM"),
-          actionButton("save_mask", "Save mask", title = "Save the current mask")
+          actionButton("save_mask", "Save mask", title = "Save the current mask"),
+          actionButton("save_pc_1", "Save PC 1", title = "Save Point Cloud 1"),
+          actionButton("save_pc_2", "Save PC 2", title = "Save Point Cloud 2")
         ),
         tags$hr(),
         wellPanel(

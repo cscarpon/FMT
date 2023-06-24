@@ -96,18 +96,11 @@ pc_obj <- setRefClass(
     save_chm = function(path) {
       terra::writeRaster(.self$CHM, path, overwrite = TRUE)
     }
+    save_pc = function(path) {
+      save(.self, file = path, overwrite = TRUE)
+    }
   )
 )
 
-
-    # get_mask = function() {
-    #   coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
-    #   mask <- concaveman(coords, concavity = 2, length_threshold = 0)
-    #   mask <- st_as_sfc(mask)
-    #   mask <- st_simplify(mask, preserveTopology = TRUE, dTolerance = 0.1)
-    #   .self$mask <- mask
-    # },
-
-# las2014 <- pc_obj$new("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2014.laz")
-# las2014$to_dtm()
-# plot(las2014$DTM)
+# # Save the S4 object to a .RData file
+# save(my_s4, file = "my_s4.RData")
