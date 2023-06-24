@@ -4,15 +4,14 @@ library(rgl)
 library(terra)
 library(lidR)
 library(sf)
-library(shinymaterial)
+# library(shinymaterial)
 library(ggplot2)
 library(scales)
-library(future)
+# library(future)
 library(leaflet)
 library(concaveman)
+# library(viridisLite)
 
 source("r/pc_obj.R")
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)
-
-
