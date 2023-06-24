@@ -7,13 +7,12 @@ process_raster <- function(source, target, mask_layer, method = "bilinear") {
     print(paste("compareGeom error:", e$message))
     aligned <- FALSE
   })
-
   if (!aligned) {
     source <- terra::resample(source, target, method = method)
     # Crop the source to match the target raster's extent.
     source <- terra::crop(source, terra::ext(target))
   }
-  source <- terra::mask(source, mask_layer)
+  source <- terra::mask(source, terra::vect(mask_layer))
   return(source)
 }
 
@@ -28,13 +27,18 @@ CHM_diff_classify <- function(earlier, later) {
             -2.5, 2.5, 3,
             2.5, 10, 4,
             10, Inf, 5)
-    rclmat <- matrix(m, ncol = 3, byrow = TRUE)
-    diff_class <- terra::classify(diff, rclmat, include.lowest = TRUE)
+    # rclmat <- matrix(m, ncol = 3, byrow = TRUE)
+    # Create a matrix with the ranges for reclassification
+    # This matrix assumes you want to replace NA with class 0
+    rcl <- matrix(c(-Inf, Inf, 0), ncol = 3, byrow = TRUE)
+    # Reclassify the raster, including NA values
+    diff_class <- terra::classify(diff, rcl, right = FALSE, include.lowest = TRUE)
+    
     # Return the classified difference
     # Write the output
     return(diff_class)
 }
-
+#Calculate statistics for a raster and return a data frame. Currently only does area of each class.
 raster_stats <- function(raster) {
   rast_freq <- terra::freq(rast)
   rast_freq$area <- rast_freq$count * 0.5 #Square metres
@@ -65,4 +69,40 @@ is_empty <- function(raster) {
 
 is_empty_sfc <- function(sfc) {
     length(sfc) == 0
+}
+
+mask_pc <- function(pc) {
+    decimate <- decimate_points(pc, random(1))
+
+    # Check if there is a ground classification
+    if (!"2" %in% unique(pc$Classification)) {
+
+      # Classify ground
+      pc_decimated <- classify_ground(pc, csf())
+      pc_ground <- filter_poi(pc_decimated, Classification == 2)
+    } else {
+      pc_ground <- filter_poi(pc, Classification == 2)
+    }
+    coords <- st_as_sf(pc_ground@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
+
+    # Extract the geometry from the sf object
+    geom <- st_geometry(coords)
+
+    # Define the raster extent
+    r <- raster::raster(extent(coords), resolution = 1) # Adjust resolution as needed
+
+    # Convert your sf object to SpatialPointsDataFrame
+    pts_sp <- as(coords, "Spatial")
+
+    # Rasterize
+    r <- raster::rasterize(pts_sp, r)
+
+    out_shp <- raster::rasterToPoints(r, spatial = TRUE)
+
+    polygons_sf <- sf::st_as_sf(out_shp)
+    poly_buff <- sf::st_buffer(polygons_sf, 25)
+    poly_union <- sf::st_union(poly_buff)
+    poly_union <- sf::st_buffer(poly_union, -24)
+    sf::st_crs(poly_union) <- lidR::projection(pc)
+    return(poly_union)
 }
