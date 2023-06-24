@@ -2,7 +2,7 @@ library(shiny)
 library(future)
 
 #Allow for parallel processing in the app.
-plan(multisession)
+#plan(multisession)
 
 # Source the required scripts
 source("app/global.R")

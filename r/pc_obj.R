@@ -38,10 +38,7 @@ pc_obj <- setRefClass(
                                     Classification = .self$LPC@data$Classification
                                     )
       }
-      coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
-      mask <- concaveman(coords, concavity = 2, length_threshold = 0)
-      mask <- st_as_sfc(mask)
-      mask <- st_simplify(mask, preserveTopology = TRUE, dTolerance = 0.1)
+      mask <- mask_pc(.self$LPC)
       .self$mask <- mask
     },
     set_crs = function(crs) {
@@ -56,13 +53,7 @@ pc_obj <- setRefClass(
                                     )
 
     },
-    # get_mask = function() {
-    #   coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
-    #   mask <- concaveman(coords, concavity = 2, length_threshold = 0)
-    #   mask <- st_as_sfc(mask)
-    #   mask <- st_simplify(mask, preserveTopology = TRUE, dTolerance = 0.1)
-    #   .self$mask <- mask
-    # },
+
     get_data = function() {
       return(.self$data)
     },
@@ -77,11 +68,12 @@ pc_obj <- setRefClass(
     },
     to_dtm = function(resolution = 0.5) {
       dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
-      .self$DTM <- dtm
-      print(".self$DTM after assignment:")
+      mask <- terra::mask(dtm, terra::vect(.self$mask))
+      .self$DTM <- mask
+      print("Raster Info After assignment:")
       print(.self$DTM)
     },
-    to_chm = function(resolution = 0.5) {
+    to_chm = function(resolution = 0.5)  {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
       dtm <- .self$DTM
@@ -89,9 +81,8 @@ pc_obj <- setRefClass(
       chm <- lidR::rasterize_canopy(nlas, resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
-      .self$CHM <- clamp
-      # Return the CHM
-      #return(clamp) #uncomment this line if you are going throught he code line by line
+      mask <- terra::mask(clamp, terra::vect(.self$mask))
+      .self$CHM <- mask
     },
     save_mask = function(path) {
       sf::st_write(.self$mask, path)
@@ -108,6 +99,14 @@ pc_obj <- setRefClass(
   )
 )
 
+
+    # get_mask = function() {
+    #   coords <- st_as_sf(.self$LPC@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(.self$LPC))
+    #   mask <- concaveman(coords, concavity = 2, length_threshold = 0)
+    #   mask <- st_as_sfc(mask)
+    #   mask <- st_simplify(mask, preserveTopology = TRUE, dTolerance = 0.1)
+    #   .self$mask <- mask
+    # },
 
 # las2014 <- pc_obj$new("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2014.laz")
 # las2014$to_dtm()
