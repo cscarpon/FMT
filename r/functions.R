@@ -26,13 +26,14 @@ CHM_diff_classify <- function(earlier, later) {
             -10, -2.5, 2,
             -2.5, 2.5, 3,
             2.5, 10, 4,
-            10, Inf, 5)
+            10, Inf, 5,
+            NA, NA, 0)
     # rclmat <- matrix(m, ncol = 3, byrow = TRUE)
     # Create a matrix with the ranges for reclassification
     # This matrix assumes you want to replace NA with class 0
-    rcl <- matrix(c(-Inf, Inf, 0), ncol = 3, byrow = TRUE)
+    rclmat <- matrix(m, ncol = 3, byrow = TRUE)
     # Reclassify the raster, including NA values
-    diff_class <- terra::classify(diff, rcl, right = FALSE, include.lowest = TRUE)
+    diff_class <- terra::classify(diff, rclmat, right = FALSE, include.lowest = TRUE)
     
     # Return the classified difference
     # Write the output

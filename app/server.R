@@ -21,10 +21,17 @@ server = function(input, output, session) {
         # Use rv$resolution, rv$crs, rv$out_dir here
       })
 
-      observeEvent(input$file1, {
+        observeEvent(input$file1, {
         inFile <- input$file1
-        if (is.null(inFile)) return(NULL)
-        rv$pc1 <- pc_obj$new(inFile$datapath)
+        if (is.null(inFile)) {
+            return(NULL)
+        } else if (tools::file_ext(inFile$datapath) == "rdata") {
+          load(inFile$datapath)
+          rv$pc1 <- pc_obj
+        } else {
+          rv$pc1 <- pc_obj$new(inFile$datapath)
+        }
+          
         # Update selected objects dropdown
         updateSelectInput(session, "selected_obj", choices = c("pc1", names(rv)))
         updateSelectInput(session, "selected_obj2", choices = c("pc1", names(rv)))
@@ -33,13 +40,20 @@ server = function(input, output, session) {
 
       observeEvent(input$file2, {
         inFile <- input$file2
-        if (is.null(inFile)) return(NULL)
-        rv$pc2 <- pc_obj$new(inFile$datapath)
+        if (is.null(inFile)) {
+            return(NULL)
+        } else if (tools::file_ext(inFile$datapath) == "rdata") {
+          load(inFile$datapath)
+          rv$pc2 <- pc_obj
+        } else {
+          rv$pc2 <- pc_obj$new(inFile$datapath)
+        }
         # Update selected objects dropdown
-        updateSelectInput(session, "selected_obj", choices = c("pc1", "pc2", names(rv)))
-        updateSelectInput(session, "selected_obj2", choices = c("pc1", "pc2", names(rv)))
+        updateSelectInput(session, "selected_obj", choices = c("pc1", "pc2", names(rv)))  # Added pc3 here
+        updateSelectInput(session, "selected_obj2", choices = c("pc1", "pc2", names(rv)))  
         print(paste("Updated selected_obj choices: ", toString(names(rv))))
       })
+
 
       selected_las <- reactive({
         req(input$selected_obj)
@@ -115,19 +129,6 @@ server = function(input, output, session) {
         rv$results <- stats
       })
 
-      # observeEvent(input$dtm, {
-      #   req(rv$resolution, selected_las())
-      #   print(paste("Executing task: Generate DTM for ", selected_las()$filename))  # print the filename
-      #   selected_las()$to_dtm(rv$resolution)  # use rv$resolution here
-      #   print(paste("Finished executing task: Generate DTM for ", selected_las()$filename))  # print the filename
-      # })
-
-      # observeEvent(input$chm, {
-      #   print(paste("Executing task: Generate CHM for", input$selected_las))
-      #   selected_las()$to_chm(resolution = rv$resolution)
-      #   print(paste("Finished executing task: Generate CHM for", input$selected_las))
-      # })
-
 ## Save Buttons
 
       observeEvent(input$save_las, {
@@ -158,6 +159,19 @@ server = function(input, output, session) {
         out_dir <- normalizePath(rv$out_dir)
         path <- paste0(out_dir, "/", selected_las(), "_mask.shp")
         selected_las()$save_mask(path)
+      })
+
+
+      observeEvent(input$save_pc_1, {
+        out_dir <- normalizePath(rv$out_dir)
+        path <- paste0(out_dir, "pc1.RData")
+        selected_las()$save_pc(path)
+      })
+
+      observeEvent(input$save_pc_1, {
+        out_dir <- normalizePath(rv$out_dir)
+        path <- paste0(out_dir, "pc1.RData")
+        selected_las2()$save_pc(path)
       })
 
 
@@ -194,7 +208,6 @@ server = function(input, output, session) {
         })
 
 
-## Leaflet Map
     observeEvent(input$plot_leaf, {
       output$leafletmap <- renderLeaflet({
         print(paste("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format"))
@@ -203,135 +216,55 @@ server = function(input, output, session) {
         diff <- if(!is_empty(rv$classified_diff)) terra::project(rv$classified_diff, "EPSG:4326") else NULL
         mask <- if(!is_empty_sfc(selected_las()$mask)) sf::st_transform(selected_las()$mask, 4326) else NULL
         pal <- if(!is.null(mask)) "rgba(173, 216, 230, 0.4)" else NULL
-        
+
         m <- leaflet() %>%
           addProviderTiles(providers$OpenStreetMap)
 
         if (!is_empty(dtm)) {
           m <- addRasterImage(m, raster::raster(dtm), group = "DTM", maxBytes = Inf)
         }
-        
+
         if (!is_empty(chm)) {
           m <- addRasterImage(m, raster::raster(chm), group = "CHM", maxBytes = Inf)
         }
 
         if (!is_empty(diff)) {
-          # Generate the plasma palette with 6 colors (5 + 1 for NA values)
-          plasma_palette <- viridis(5, option = "plasma", end = 0.9)
 
-          # Create a color function
-          chm_pal <- colorFactor(plasma_palette, na.color = "#808080", domain = 1:6)
+          # Color palette
+          bins <- c(1, 2, 3, 4, 5, NA)  # Specify your bins, in this case, 1 to 5 and NA
+          palette <- c("red", "orange", "white", "lightgreen", "darkgreen", "transparent")  # Color for each bin, NA mapped to transparent
+          labels <- c("Loss - Greater than 10m", "Loss - from 2.5m to 10m", "No change", "Gain - from 2.5m to 10m", "Gain - Greater than 10m", "Out of range")  # Labels for each bin
+          pal <- colorBin(palette = palette, bins = bins, na.color = "transparent")  # Create color palette function with colorBin
 
-          # Convert diff to RasterLayer
           diff_raster <- raster::raster(diff)
+          values(diff_raster)[is.na(values(diff_raster))] <- NA  # Make sure NAs in diff are really NAs
           
-          m <- addRasterImage(m, diff_raster, colors = chm_pal, group = "CHM_Difference", maxBytes = Inf)
-
-          m <- m %>%
-            addLegend(
-              position = "bottomright",
-              pal = chm_pal,
-              values = 1:6,
-              title = "Change in Height",
-              labels = c("Loss - Greater than 10m",
-                        "Loss - from 2.5m to 10m",
-                        "No change",
-                        "Gain - from 2.5m to 10m",
-                        "Gain - Greater than 10m",
-                        "Out of range"),
-              opacity = 1
-            )
-        }
-        #  if (!is.null(diff)) {
-          # Set NAs to a specific value
-          # Here, we're setting NA values to 6
-          #diff <- terra::classify(diff, cbind(NA, 6))
-        # Add an additional color for the new value
-        #chm_pal <- colorFactor(c("red", "orange", "white", "lightgreen", "darkgreen", "gray"), domain = 1:6)
-        #  chm_pal <- colorFactor(c("red", "orange", "white", "lightgreen", "darkgreen"), domain = 1:5)
-        
-          # m <- addRasterImage(m, raster::raster(diff), colors = "Plasma", group = "CHM_Difference", maxBytes = Inf)
-
-          # m <- m %>%
-          #   addLegend(
-          #     position = "bottomright",
-          #     pal = "Plasma",
-          #     values = 1:5,
-          #     title = "Change in Height",
-          #     labels = c("Loss - Greater than 10m",
-          #               "Loss - from 2.5m to 10m",
-          #               "No change",
-          #               "Gain - from 2.5m to 10m",
-          #               "Gain - Greater than 10m",
-          #               "Out of range"),
-          #     opacity = 1
-          #   )
-          # }
+          m <- addRasterImage(m, diff_raster, group = "CHM_Difference", maxBytes = Inf, colors = pal)
+          
           if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
             m <- addPolygons(m, data = mask, color = "red", group = "Mask")
           }
 
           m <- addLayersControl(
-                m,
-                overlayGroups = c("DTM", "CHM", "CHM_Difference", "Mask"),
-                options = layersControlOptions(collapsed = FALSE)
+            m,
+            overlayGroups = c("DTM", "CHM", "CHM_Difference", "Mask"),
+            options = layersControlOptions(collapsed = FALSE)
           )
+
+          m <- addLegend(
+            m,
+            pal = pal,
+            values = ~bins,
+            position = "bottomright",
+            title = "Change in Height",
+            labels = labels
+          )
+          
           print(paste("Completed task: Plot Leaflet"))
           return(m)
+        }
       })
     })
-
-  # observeEvent(input$plot_leaf, {
-  #   output$leafletmap <- renderLeaflet({
-  #     print(paste("Executing task: Plot Leaflet. Please wait as the raster are converted for web format")) 
-  #     dtm <- if(!is_empty(selected_las()$DTM)) terra::project(selected_las()$DTM, "EPSG:4326") else NULL
-  #     chm <- if(!is_empty(selected_las()$CHM)) terra::project(selected_las()$CHM, "EPSG:4326") else NULL
-  #     diff <- if(!is_empty(rv$classified_diff)) terra::project(rv$classified_diff, "EPSG:4326") else NULL
-  #     mask <- if(!is_empty_sfc(selected_las()$mask)) sf::st_transform(selected_las()$mask, 4326) else NULL
-  #     pal <- if(!is.null(mask)) "rgba(173, 216, 230, 0.4)" else NULL
-  #     chm_pal <- colorFactor(c("red", "orange", "white", "lightgreen", "darkgreen"), domain = 1:5)
-  #     m <- leaflet() %>%
-  #           addTiles()
-  #     if (!is.null(dtm)) {
-  #       m <- addRasterImage(m, raster::raster(dtm), group = "DTM", maxBytes = Inf)
-  #     }
-      
-  #     if (!is.null(chm)) {
-  #       m <- addRasterImage(m, raster::raster(chm), group = "CHM", maxBytes = Inf)
-  #     }
-      
-  #     if (!is.null(diff)) {
-  #       m <- addRasterImage(m, raster::raster(diff), pal = chm_pal, opacity = 0.8, group = "CHM_Difference", maxBytes = Inf)
-  #     }
-      
-  #     m <- m %>%
-  #       addLegend(
-  #         position = "bottomright",
-  #         pal = chm_pal,
-  #         values = 1:5,
-  #         title = "Change in Height",
-  #         labels = c("Loss - Greater than 10m",
-  #                   "Loss - from 2.5m to 10m",
-  #                   "No distinguishable change",
-  #                   "Gain - from 2.5m to 10m",
-  #                   "Gain - Greater than 10m"),
-  #         opacity = 1
-  #       )
-
-  #     if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-  #       m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-  #     }
-      
-      # m <- addLayersControl(
-      #   m,
-      #   overlayGroups = c("DTM", "CHM", "CHM_Difference", "Mask"),
-      #   options = layersControlOptions(collapsed = FALSE)
-      # )
-      # print(paste("Completed task: Plot Leaflet"))
-      # return(m)
-
-  #   })
-  # })
 
 ## Initialized Leaflet
 
