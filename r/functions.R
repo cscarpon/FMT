@@ -26,14 +26,11 @@ CHM_diff_classify <- function(earlier, later) {
             -10, -2.5, 2,
             -2.5, 2.5, 3,
             2.5, 10, 4,
-            10, Inf, 5,
-            NA, NA, 0)
+            10, Inf, 5)
     # rclmat <- matrix(m, ncol = 3, byrow = TRUE)
     # Create a matrix with the ranges for reclassification
-    # This matrix assumes you want to replace NA with class 0
     rclmat <- matrix(m, ncol = 3, byrow = TRUE)
-    # Reclassify the raster, including NA values
-    diff_class <- terra::classify(diff, rclmat, right = FALSE, include.lowest = TRUE)
+    diff_class <- terra::classify(diff, rclmat, include.lowest = TRUE)
     
     # Return the classified difference
     # Write the output
@@ -63,14 +60,17 @@ plot_stats <- function(rast_stats) {
     theme_minimal() +
     scale_y_continuous(labels = comma)
 }
-
+#Check to ensure SpatRaster is not empty - used for Leaflet testing
 is_empty <- function(raster) {
     all(is.na(terra::values(raster)))
 }
-
+#Check to ensure sfc is not empty - used for Leaflet testing
 is_empty_sfc <- function(sfc) {
     length(sfc) == 0
 }
+
+
+#Mask pc is called on initially. Every point cloud object will have a mask layer.
 
 mask_pc <- function(pc) {
     decimate <- decimate_points(pc, random(1))
