@@ -1,5 +1,5 @@
 pc_obj <- setRefClass(
-  "point_cloud_obj",
+  "point_cloud_container",
   fields = list(
     data = "data.frame",
     LPC = "LAS",
@@ -21,7 +21,7 @@ pc_obj <- setRefClass(
         if (ext == "xyz") {
             .self$data <- read.table(file_path)
             names(.self$data) <- c("X", "Y", "Z")
-            .self$LPC <- LAS(.self$data)
+            .self$LPC <<- LAS(.self$data)
             ground <- lidR::classify_ground(.self$LPC, algorithm = pmf(ws = 5, th = 3))
             .self$LPC@data$Classification <- ground@data$Classification
             .self$LPC@data$ReturnNumber <- 1
@@ -29,7 +29,7 @@ pc_obj <- setRefClass(
         } else if (ext == "las" || ext == "laz") {
             .self$LPC <- lidR::readLAS(file_path)
         if (is.empty(.self$LPC)) return(NULL)
-            .self$data <- data.frame(X = .self$LPC@data$X,
+            .self$data <<- data.frame(X = .self$LPC@data$X,
                                     Y = .self$LPC@data$Y,
                                     Z = .self$LPC@data$Z,
                                     Intensity = .self$LPC@data$Intensity,
@@ -38,8 +38,7 @@ pc_obj <- setRefClass(
                                     Classification = .self$LPC@data$Classification
                                     )
       }
-      mask <- mask_pc(.self$LPC)
-      .self$mask <- mask
+      .self$mask <<- mask_pc(.self$LPC)
     },
     set_crs = function(crs) {
       st_crs(.self$LPC) <- crs
@@ -53,7 +52,6 @@ pc_obj <- setRefClass(
                                     )
 
     },
-
     get_data = function() {
       return(.self$data)
     },
@@ -68,9 +66,8 @@ pc_obj <- setRefClass(
     },
     to_dtm = function(resolution = 1) {
       dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
-      mask <- terra::mask(dtm, terra::vect(.self$mask))
-      .self$DTM <- mask
-      print("Raster Info After assignment:")
+      .self$DTM  <<- terra::mask(dtm, terra::vect(.self$mask))
+      print("DTM info After assignment:")
       print(.self$DTM)
     },
     to_chm = function(resolution = 1)  {
@@ -81,8 +78,9 @@ pc_obj <- setRefClass(
       chm <- lidR::rasterize_canopy(nlas, resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
-      mask <- terra::mask(clamp, terra::vect(.self$mask))
-      .self$CHM <- mask
+      .self$CHM <<- terra::mask(clamp, terra::vect(.self$mask))
+      print("CHM Info After assignment:")
+      print(.self$CHM)
     },
     save_mask = function(path) {
       sf::st_write(.self$mask, path)
