@@ -24,8 +24,8 @@ These scripts will conenct the class, the functions and the global variables to 
 ```{r , include=FALSE}
 # Source the required scripts
 source("app/global.R")
-source("functions.R")
-source("pc_obj.R")
+source("r/functions.R")
+source("r/pc_obj.R")
 ```
 
 ## Class Structure of the Point Cloud Object
@@ -88,7 +88,24 @@ pc_19 <- pc_obj$new(path_19)
 
 ## Functions built with the class to help the processing of Point Cloud Data, Rasters, and Shapefiles
 
+process_raster(source, target, mask_layer, method = "bilinear") - This function will align rasters and resample them to the target raster. It will also mask the target raster with the mask_layer
+CHM_diff_classify(earlier, later) - This will do the differencencing of the CHMs and reclassify them
+raster_stats(raster) this will produce statistcs about the chm diff raster, it only produces area per group for now
+plot_stats(stats) plots the stats of the raster to the 2D plot consol
+is_empty(raster) checks to see if the raster is empty and returns a boolean
+is_empty_sfc(sfc)   checks to see if the sfc is empty and returns a boolean
+mask_pc(pc)
+
+
 ```{r, echo=FALSE}
+
+
+
+
+
+
+
+```
 
 ```
 
@@ -122,6 +139,12 @@ pc_19$to_dtm(1)
 plot(pc_14$DTM)
 ```
 
+```{r, echo=FALSE}
+
+pc_14$DTM
+```
+
+
 ## Creating the Canopy Height Model (CHM)
 
 The Canopy Height Model (CHM) is created from the point cloud data using the `to_chm()` method. 
@@ -136,6 +159,11 @@ pc_19$to_chm(1)
 plot(pc_14$CHM)
 
 ```
+
+```{r, echo=FALSE}
+pc_14$CHM
+```
+
 
 ## Alignment of the CHM Rasters
 
