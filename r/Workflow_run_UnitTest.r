@@ -2,12 +2,32 @@ source("app/global.R")
 source("r/functions.R")
 source("r/pc_obj.R")
 
-install.packages("terra")
+reticulate::py_config()
 
-library(terra)
+#Methods
+
+# to_dtm()        save_las()
+# to_chm()        save_dtm()
+# save_mask()     save_chm()
+# save_pc()
+
+#Functions
+  
+process_raster(source, target, mask_layer)
+CHM_diff_classify(earlier, later)
+raster_stats(raster)
+mask_pc()
+
+reticulate::py_config()
 
 
-conda_list()
+# conda_list()
+use_condaenv("point_clouds", required = TRUE)
+py_install("brotli")
+# miniconda_update(path = miniconda_path())
+# py_install("open3d", envname = "point_clouds")
+
+
 
 path_14 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2014_decimate.laz"
 pc_14 <- pc_obj$new(path_14)
@@ -15,6 +35,12 @@ pc_14 <- pc_obj$new(path_14)
 path_19 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2019_decimate.laz"
 pc_19 <- pc_obj$new(path_19)
 
+
+# import SciPy (it will be automatically discovered in "r-reticulate")
+open3D <- import("open3D")
+numpy <- import("numpy")
+
+source_python("py/ICP_Object.py")
 
 plot(pc_14$mask)
 
@@ -35,34 +61,6 @@ chm_14_aligned <- process_raster(pc_14$CHM, pc_19$CHM, pc_19$mask, method = "bil
 chm_classified <- CHM_diff_classify(chm_14_aligned, pc_19$CHM)
 
 plot(chm_classified)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 print(paste("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format"))
 dtm <- if(!is_empty(pc_14$DTM)) terra::project(pc_19$DTM, "EPSG:4326") else NULL

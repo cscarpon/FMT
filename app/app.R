@@ -8,6 +8,7 @@ library(future)
 source("app/global.R")
 source("r/functions.R")
 source("app/server.R")
+source("r/pc_obj.R")
 
 
 # Define the UI and server

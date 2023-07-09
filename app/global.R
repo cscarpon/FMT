@@ -10,10 +10,6 @@ library(leaflet)
 library(concaveman)
 library(reticulate)
 
-# library(shinymaterial)
-# library(future)
-# library(viridisLite)
 
-source("r/pc_obj.R")
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)
