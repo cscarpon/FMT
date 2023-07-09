@@ -1,5 +1,5 @@
-import open3d as o3d
-import numpy as np
+# import open3d as o3d
+# import numpy as np
 
 class PointCloud:
     def __init__(self, path):
@@ -23,13 +23,13 @@ class PointCloud:
 
 
 
-pcd = o3d.io.read_point_cloud("C:/Users/User/Downloads/GSR6October2022-003.xyz") 
+# pcd = o3d.io.read_point_cloud("C:/Users/User/Downloads/GSR6October2022-003.xyz") 
 
 
 
 # # Instantiate the PointCloud objects for each .xyz file
-pcd1 = PointCloud("C:/Users/User/Downloads/GSR6October2022-003.xyz")
-pcd2 = PointCloud("C:/Users/User/Downloads/GSR5May2023-005.xyz")
+# pcd1 = PointCloud("C:/Users/User/Downloads/GSR6October2022-003.xyz")
+# pcd2 = PointCloud("C:/Users/User/Downloads/GSR5May2023-005.xyz")
 # pcd3 = PointCloud("C:/Users/User/Documents/Python_Scripts/TTP/LAS/Clipped/TTP_2021.xyz")
 
 # # Align pcd2 and pcd3 to pcd1
