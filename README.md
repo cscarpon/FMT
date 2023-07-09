@@ -1,4 +1,4 @@
-#Forest Monitoring Tool
+# Forest Monitoring Tool
 A Lidar Tool designed to help foresters, scientists, citizen scientists, and anyone who is curious enough to explore.
 
 The tool combines most pre-processing, processing, and post-processing procedures for any point cloud, raster, and shapefile data in the click of a few buttons.
