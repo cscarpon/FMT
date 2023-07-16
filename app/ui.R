@@ -1,12 +1,16 @@
 library(shiny)
 
 fluidPage(
-    titlePanel("Tree Analyser 5000"),
+    titlePanel("Forest Monitoring Tool (FMT)"),
+    # This is the text message ontop of the prompt
+    # textOutput("text"),
+    # This is the console output
+    
     sidebarLayout(
       sidebarPanel(
         fileInput("file1", "Choose first LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
         fileInput("file2", "Choose second LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
-        numericInput("resolution", "Resolution:", value =1),
+        numericInput("resolution", "Resolution:", value = 1),
         numericInput("crs", "CRS:", value = 4326),
         textInput("out_dir", "Output directory:", value = paste0(getwd(),"/data/" )),
         actionButton("confirm", "Confirm Inputs"),
@@ -39,9 +43,6 @@ fluidPage(
           actionButton("plot_leaf", "Plot to Leaflet", title = "Plot the current objects to a leaflet map"),
           actionButton("plot_las", "Plot LAS", title = "Plot the current LAS object"),
           actionButton("plot_results", "Plot Results", title = "Plot the difference results")
-          # actionButton("plot_mask", "Plot Mask", title = "Plot the current Mask"),
-          # actionButton("plot_chm", "Plot CHM", title = "Plot the current CHM"),
-          # actionButton("plot_dtm", "Plot DTM", title = "Plot the current DTM"),
         )
       ),
       mainPanel(
@@ -49,6 +50,13 @@ fluidPage(
           tabPanel("Leaflet Map", leafletOutput("leafletmap")),
           tabPanel("3D Plot", rglwidgetOutput("plot3D")),
           tabPanel("2D Plot", plotOutput("plot2D")),
-          )
+          ),
+          tags$head(tags$style(HTML("
+                              #console_output {
+                                height: 300px;
+                                overflow-y: auto;
+                              }
+                            "))),
+        verbatimTextOutput("console_output")
       ))
 )
