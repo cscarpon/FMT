@@ -85,7 +85,7 @@ server = function(input, output, session) {
         # Ensure the DTMs exist and have been processed for each pc_obj
         req(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask)
         print(paste("Running Pre-Processing"))
-        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask, method = "bilinear")
+        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, method = "bilinear")
         print(paste("Pre-Processing Complete"))
         # Save the processed raster in the rv list so it can be accessed elsewhere
         rv$pc1$CHM <- processed_chm
