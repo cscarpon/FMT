@@ -1,5 +1,5 @@
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
-process_raster <- function(source, target, mask_layer, method = "bilinear") {
+process_raster <- function(source, target, source_mask, target_mask, method = "bilinear") {
   aligned <- FALSE
   tryCatch({
     aligned <- terra::compareGeom(source, target, stopiffalse = FALSE, tolerance = 0.1)
@@ -8,12 +8,22 @@ process_raster <- function(source, target, mask_layer, method = "bilinear") {
     aligned <- FALSE
   })
   if (!aligned) {
-    source <- terra::resample(source, target, method = method)
+    # Assuming you have predefined masks for source and target
+    union <- sf::st_union(source_mask, target_mask)
+    union <- terra::vect(union)
+
     # Crop the source to match the target raster's extent.
-    source <- terra::crop(source, terra::ext(target))
+    source <- terra::crop(source, terra::ext(union))
+    target <- terra::crop(target, terra::ext(union))
+
+    source <- terra::resample(source, target, method = method)
   }
-  source <- terra::mask(source, terra::vect(mask_layer))
-  return(source)
+
+  # Apply masks
+  source <- terra::mask(source, union)
+  target <- terra::mask(target, union)
+
+  return(list(source = source, target = target))
 }
 
 # Function to generate CHM and classify the differences
