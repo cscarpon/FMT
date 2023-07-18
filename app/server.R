@@ -3,8 +3,17 @@ server = function(input, output, session) {
 ## Selection and parameters
 
       # Create a reactiveValues object to store the LAS files
-      rv <- reactiveValues()
+      rv <- reactiveValues(console_output = list())
 
+      #Server logic to accept the Resolution, CRS, and Output Directory
+      observeEvent(input$anotherEvent, {
+        # Make sure the values are set before using them
+        req(rv$resolution, rv$crs, rv$out_dir)
+        # Use rv$resolution, rv$crs, rv$out_dir here
+      })
+
+
+      #Server logic to confirm the Resolution, CRS, and Output Directory inputs
       observeEvent(input$confirm, {
         rv$resolution <- input$resolution
         rv$crs <- input$crs
@@ -15,12 +24,7 @@ server = function(input, output, session) {
         print(paste0("Output directory: ", rv$out_dir))
       })
 
-      observeEvent(input$anotherEvent, {
-        # Make sure the values are set before using them
-        req(rv$resolution, rv$crs, rv$out_dir)
-        # Use rv$resolution, rv$crs, rv$out_dir here
-      })
-
+      #Server logic to load PC1 from Directory
         observeEvent(input$file1, {
         inFile <- input$file1
         if (is.null(inFile)) {
@@ -38,6 +42,7 @@ server = function(input, output, session) {
         print(paste("Updated selected_obj choices: ", toString(names(rv))))
       })
 
+      #Server logic to load PC2 from Directory
       observeEvent(input$file2, {
         inFile <- input$file2
         if (is.null(inFile)) {
@@ -54,35 +59,39 @@ server = function(input, output, session) {
         print(paste("Updated selected_obj choices: ", toString(names(rv))))
       })
 
-
+      #Selecting which PC is PC1
       selected_las <- reactive({
         req(input$selected_obj)
         print(paste("Current selected_obj for PC 1: ", input$selected_obj))
         rv[[input$selected_obj]]
       })
 
+      #Selecting which PC is PC2
       selected_las2 <- reactive({
         req(input$selected_obj2)
         print(paste("Current selected_obj for PC 2: ", input$selected_obj2))
         rv[[input$selected_obj2]]
       })
 
+      #Saving the xyz from the PCC
       observeEvent(input$xyz, {
         print(paste("Executing task: Convert to XYZ for", input$selected_las))
         selected_las()$to_xyz()
         print(paste("Finished executing task: Convert to XYZ for", input$selected_las))
       })
 
+      #Button logic to Align both CHMs from each PC
       observeEvent(input$align_chms, {
         # Ensure the DTMs exist and have been processed for each pc_obj
         req(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask)
         print(paste("Running Pre-Processing"))
-        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask, method = "bilinear")
+        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, method = "bilinear")
         print(paste("Pre-Processing Complete"))
         # Save the processed raster in the rv list so it can be accessed elsewhere
         rv$pc1$CHM <- processed_chm
       })
 
+      #Button logic to classify the difference between the two CHMs
       observeEvent(input$classify_chm, {
         # Ensure the DTMs exist and have been processed for each pc_obj
         req(selected_las()$CHM, selected_las2()$CHM)
@@ -93,18 +102,46 @@ server = function(input, output, session) {
         # Save the processed raster in the rv list so it can be accessed elsewhere
         rv$classified_diff <- diff_class
       })
+
+      #Building the DTM for the first PC with Text Prompts
       observeEvent(input$dtm1, {
         req(rv$resolution, selected_las())
-        print(paste("Executing task: Generate DTM for ", selected_las()$filename))  # print the filename
+
+        #Building the messages to push to the console
+        new_message <- paste0("Executing task: Generate DTM1 for ", selected_las()$filename)
+        rv$console_output <- c(rv$console_output, list(new_message))
+
+        #Calling the DTM Function
         selected_las()$to_dtm(rv$resolution)  # use rv$resolution here
-        print(paste("Finished executing task: Generate DTM for ", selected_las()$filename))  # print the filename
+
+        #Printing the DTM statistics
+        object_message <- print(selected_las()$DTM)
+        rv$console_output <- c(rv$console_output, list(object_message))
+
+
+        #Printing the closing message to the console.
+        new_message <- paste("Finished executing task: Generate DTM1 for", selected_las()$filename)
+        rv$console_output <- c(rv$console_output, list(new_message))
       })
 
       observeEvent(input$dtm2, {
+
+        #Ensuring that the resolution and the PC are selected
         req(rv$resolution, selected_las2())
-        print(paste("Executing task: Generate DTM for ", selected_las2()$filename))  # print the filename
+
+        #Pushing the text prompt for DTM2 to the console
+        new_message <- paste0("Executing task: Generate DTM2 for ", selected_las2()$filename)
+        rv$console_output <- c(rv$console_output, list(new_message))
         selected_las2()$to_dtm(rv$resolution)  # use rv$resolution here
-        print(paste("Finished executing task: Generate DTM for ", selected_las2()$filename))  # print the filename
+
+
+        #Printing the DTM statistics
+        object_message <- print(selected_las2()$DTM)
+        rv$console_output <- c(rv$console_output, list(object_message))
+
+        #Printing the closing message to the console.
+        new_message <- paste("Finished executing task: Generate DTM2 for", selected_las2()$filename)
+        rv$console_output <- c(rv$console_output, list(new_message))
       })
 
       observeEvent(input$chm1, {
@@ -174,6 +211,12 @@ server = function(input, output, session) {
         selected_las2()$save_pc(path)
       })
 
+#Plot Terminal
+
+      output$console_output <- renderPrint({
+        lapply(rv$console_output, print)  # Display all console output messages
+      })
+
 
 ## Plot Las
       observeEvent(input$plot_las, {
@@ -182,7 +225,6 @@ server = function(input, output, session) {
                 rglwidget()
               })
             })
-
 
 ##Plot Results
 

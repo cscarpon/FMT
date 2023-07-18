@@ -44,19 +44,23 @@ source_python("py/ICP_Object.py")
 
 plot(pc_14$mask)
 
-pc_14$to_dtm(1)
-pc_19$to_dtm(1)
+pc_14$to_dtm(5)
+pc_19$to_dtm(5)
 
 plot(pc_14$DTM)
 
 
-pc_14$to_chm(1)
-pc_19$to_chm(1)
+pc_14$to_chm(5)
+pc_19$to_chm(5)
 
 plot(pc_14$CHM)
 
+
+st_crs(pc_14$mask)
+st_crs(pc_19$mask)
+
 #This function aligns the two rasters and returns aligned raster objects.
-chm_14_aligned <- process_raster(pc_14$CHM, pc_19$CHM, pc_19$mask, method = "bilinear")
+aligned_chm <- process_raster(pc_14$CHM, pc_19$CHM, source_mask = pc_14$mask, target_mask = pc_19$mask, method = "bilinear")
 
 chm_classified <- CHM_diff_classify(chm_14_aligned, pc_19$CHM)
 

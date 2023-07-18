@@ -66,9 +66,7 @@ pc_obj <- setRefClass(
     },
     to_dtm = function(resolution = 1) {
       dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
-      .self$DTM  <- terra::mask(dtm, terra::vect(.self$mask))
-      print("DTM info After assignment:")
-      print(.self$DTM)
+      .self$DTM  <- dtm
     },
     to_chm = function(resolution = 1)  {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
@@ -78,9 +76,7 @@ pc_obj <- setRefClass(
       chm <- lidR::rasterize_canopy(nlas, resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
-      .self$CHM <- terra::mask(clamp, terra::vect(.self$mask))
-      print("CHM Info After assignment:")
-      print(.self$CHM)
+      .self$CHM <- clamp
     },
     save_mask = function(path) {
       sf::st_write(.self$mask, path)
