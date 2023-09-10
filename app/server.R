@@ -82,13 +82,15 @@ server = function(input, output, session) {
 
       #Button logic to Align both CHMs from each PC
       observeEvent(input$align_chms, {
-        # Ensure the DTMs exist and have been processed for each pc_obj
-        req(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask)
+        # Ensure the CHMS exist and have been processed for each pc_obj
+        req(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask, rv)
         print(paste("Running Pre-Processing"))
-        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, method = "bilinear")
+        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, selected_las()$mask, selected_las2()$mask, crs = rv$crs, method = "bilinear")
         print(paste("Pre-Processing Complete"))
         # Save the processed raster in the rv list so it can be accessed elsewhere
-        rv$pc1$CHM <- processed_chm
+        selected_las()$CHM <- processed_chm[[1]]
+        selected_las2()$CHM <- processed_chm[[2]]
+        rv$classified_diff <- processed_chm[[3]]
       })
 
       #Button logic to classify the difference between the two CHMs
@@ -97,7 +99,7 @@ server = function(input, output, session) {
         req(selected_las()$CHM, selected_las2()$CHM)
         print(paste("Running Classification"))
         classified_diff <- CHM_diff_classify(selected_las()$CHM, selected_las2()$CHM)
-        diff_class <- terra::mask(classified_diff, terra::vect(selected_las2()$mask))
+        diff_class <- terra::mask(classified_diff, terra::vect(rv$diff_mask))
         print(paste("Classification Complete"))
         # Save the processed raster in the rv list so it can be accessed elsewhere
         rv$classified_diff <- diff_class
@@ -245,66 +247,17 @@ server = function(input, output, session) {
                               labs(x = "Category", y = "Area (m^2)", fill = "Category") +
                               theme_bw() +
                               ggtitle("Area of each height change category")
-            plot(results_plot)
+    plot(results_plot)
           })
         })
 
+## Plot Leaflet
 
     observeEvent(input$plot_leaf, {
       output$leafletmap <- renderLeaflet({
         print(paste("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format"))
-        dtm <- if(!is_empty(selected_las()$DTM)) terra::project(selected_las()$DTM, "EPSG:4326") else NULL
-        chm <- if(!is_empty(selected_las()$CHM)) terra::project(selected_las()$CHM, "EPSG:4326") else NULL
-        diff <- if(!is_empty(rv$classified_diff)) terra::project(rv$classified_diff, "EPSG:4326") else NULL
-        mask <- if(!is_empty_sfc(selected_las()$mask)) sf::st_transform(selected_las()$mask, 4326) else NULL
-        pal <- if(!is.null(mask)) "rgba(173, 216, 230, 0.4)" else NULL
-
-        m <- leaflet() %>%
-          addProviderTiles(providers$OpenStreetMap)
-
-        if (!is_empty(dtm)) {
-          m <- addRasterImage(m, raster::raster(dtm), group = "DTM", maxBytes = Inf)
-        }
-
-        if (!is_empty(chm)) {
-          m <- addRasterImage(m, raster::raster(chm), group = "CHM", maxBytes = Inf)
-        }
-
-        if (!is_empty(diff)) {
-
-          # Color palette
-          bins <- c(1, 2, 3, 4, 5, NA)  # Specify your bins, in this case, 1 to 5 and NA
-          palette <- c("red", "orange", "white", "lightgreen", "darkgreen", "black")  # Color for each bin, NA mapped to transparent
-          labels <- c("Loss - Greater than 10m", "Loss - from 2.5m to 10m", "No change", "Gain - from 2.5m to 10m", "Gain - Greater than 10m", "Out of range")  # Labels for each bin
-          pal <- colorBin(palette = palette, bins = bins, na.color = "black")  # Create color palette function with colorBin
-
-          diff_raster <- raster::raster(diff)
-          values(diff_raster)[is.na(values(diff_raster))] <- NA  # Make sure NAs in diff are really NAs
-          
-          m <- addRasterImage(m, diff_raster, group = "CHM_Difference", maxBytes = Inf, colors = pal)
-          
-          if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-            m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-          }
-
-          m <- addLayersControl(
-            m,
-            overlayGroups = c("DTM", "CHM", "CHM_Difference", "Mask"),
-            options = layersControlOptions(collapsed = FALSE)
-          )
-
-          m <- addLegend(
-            m,
-            pal = pal,
-            values = ~bins,
-            position = "bottomright",
-            title = "Change in Height",
-            labels = labels
-          )
-          
-          print(paste("Completed task: Plot Leaflet"))
-          return(m)
-        }
+        displayMap(selected_las()$DTM, selected_las()$CHM, rv$classified_diff, rv$diff_mask)
+        print(paste("Map has been plotted. Please check the Leaflet tab"))
       })
     })
 

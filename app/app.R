@@ -1,6 +1,3 @@
-library(shiny)
-library(future)
-
 # Source the required scripts
 source("app/global.R")
 source("r/functions.R")
