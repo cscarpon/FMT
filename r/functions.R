@@ -156,65 +156,63 @@ mask_pc <- function(pc) {
 
 displayMap <- function(dtm, chm, chm_diff, mask) {
 
+  # Transform chm_mask
+  mask <- terra::project(mask, "EPSG:4326")
+
   # Mask and project DTM_14
   if (!is_empty(dtm)) {
-    dtm <- rast(dtm)
-    dtm_m <- terra::mask(dtm, terra::vect(mask))
-    dtm_m <- terra::project(dtm_m, "EPSG:4326")
+    dtm_m <- terra::project(dtm, "EPSG:4326")
+    dtm_m <- terra::mask(dtm_m, mask)
   } else {
     dtm_m <- NULL
   }
 
   # Mask and project source_chm
   if (!is_empty(chm)) {
-    chm_m <- terra::mask(chm, terra::vect(mask))
-    chm_m <- terra::project(chm_m, "EPSG:4326")
+    chm_m <- terra::project(chm, "EPSG:4326")
+    chm_m <- terra::mask(chm_m, mask)
   } else {
     chm_m <- NULL
   }
 
   # Project chm_diff
   diff <- if(!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
-
-  diff_round <- terra::round(terra::clamp(diff))
-
-  # Transform chm_mask
-  mask <- if(!is_empty_sfc(mask)) sf::st_transform(sf::st_as_sf(mask), 4326) else NULL
-
+  diff <- terra::clamp(diff, 1, 5)
+  diff_round <- round(diff)
 
   m <- leaflet() %>%
-    addTiles()
+        addTiles()
 
-  if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-    m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-  }
-
-  if (!is_empty(dtm)) {
-    m <- addRasterImage(m, dtm, group = "DTM", maxBytes = Inf)
-  }
-
-  if (!is_empty(chm)) {
-    m <- addRasterImage(m, chm, group = "CHM", maxBytes = Inf)
-  }
-
-  if (!is_empty(diff_round)) {
-    colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
-    hex_values <- apply(col2rgb(colors), 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
+  
+      m <- addPolygons(m, data = mask, color = "red", group = "Mask")
     
-    pal <- colorNumeric(hex_values, values(diff_clamp), na.color = "transparent")
-    labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
 
-    m <- addRasterImage(m, diff_round, colors = pal, group = "Diff", maxBytes = Inf)
-    m <- addLegend(m, 
-                   colors = colors,
-                   labels = labels,
-                   position = "bottomright",
-                   title = "Change in Tree Height (m)")
-  }
+      if (!is_empty(dtm)) {
+        m <- addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
+      }
 
-  m <- addLayersControl(m,
-                        overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
-                        options = layersControlOptions(collapsed = FALSE))
+      if (!is_empty(chm)) {
+        m <- addRasterImage(m, chm_m, group = "CHM", maxBytes = Inf)
+      }
+
+      if (!is_empty(diff_round)) {
+            colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
+            hex_values <- apply(col2rgb(colors), 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
+            
+            pal <- colorNumeric(hex_values, terra::values(diff_round), na.color = "transparent")
+            labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
+
+            m <- addRasterImage(m, diff_round, colors = pal, group = "Diff", maxBytes = Inf)
+            m <- addLegend(m,
+                          colors = colors,
+                          labels = labels,
+                          position = "bottomright",
+                          title = "Change in Tree Height (m)")
+        }
+
+      m <- addLayersControl(m,
+                            overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
+                            options = layersControlOptions(collapsed = FALSE))
 
   return(m)
 }
