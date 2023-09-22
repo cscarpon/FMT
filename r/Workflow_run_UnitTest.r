@@ -32,23 +32,23 @@ C:\Users\cscar\OneDrive\Documents\Data\TTP\Sample
 path_14 <- "C:/Users/cscar/OneDrive/Documents/Data/TTP/Sample/TTP_2014_decimate.laz"
 pc_14 <- pc_obj$new(path_14)
 
+pc_14$set_crs(32617)
+
 path_19 <- "C:/Users/cscar/OneDrive/Documents/Data/TTP/Sample/TTP_2019_decimate.laz"
 pc_19 <- pc_obj$new(path_19)
+pc_19$set_crs(32617)
 
 
-# import SciPy (it will be automatically discovered in "r-reticulate")
-open3D <- import("open3D")
-numpy <- import("numpy")
+# # import SciPy (it will be automatically discovered in "r-reticulate")
+# open3D <- import("open3D")
+# numpy <- import("numpy")
 
-source_python("py/ICP_Object.py")
+# source_python("py/ICP_Object.py")
 
 plot(pc_14$mask)
 
 pc_14$to_dtm(5)
 pc_19$to_dtm(5)
-
-plot(pc_14$DTM)
-
 
 pc_14$to_chm(5)
 pc_19$to_chm(5)
@@ -62,6 +62,8 @@ DTM_19 <- pc_19$DTM
 rast_14 <- pc_14$CHM
 rast_19 <- pc_19$CHM
 
+processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, selected_las()$mask, selected_las2()$mask, crs = rv$crs, method = "bilinear")
+
 #This function aligns the two rasters and returns aligned raster objects.
 aligned_chm <- process_raster(pc_14$CHM, pc_19$CHM, source_mask = pc_14$mask, target_mask = pc_19$mask, crs = 4326, method = "bilinear")
 
@@ -69,11 +71,21 @@ source_chm <- aligned_chm[[1]]
 target_chm <- aligned_chm[[2]]
 chm_mask <- aligned_chm[[3]]
 
+print(source_chm)
+print(target_chm)
+
+plot(source_chm)
+plot(chm_diff_test)
+
+unique(values(chm_diff_test))
 
 
 # Function to generate CHM and classify the differences
-aligned_chm
-chm_diff_test <- CHM_diff_classify(aligned_chm[[1]], aligned_chm[[2]])
+
+chm_diff_test <- CHM_diff_classify(source_chm, target_chm)
+
+displayMap(DTM_14, rast_14, chm_diff_test, chm_mask)
+
 
 plot(chm_diff_test)
 
@@ -93,68 +105,69 @@ rast_19 <- pc_19$CHM
 plot(sf_14)
 plot(DTM_14_test)
 
-providerTileOptions()
+displayMap(DTM_14, rast_14, chm_diff_test, chm_mask)
 
-if (!is_empty(DTM_14)) {
-    DTM_14_lf <- terra::mask(DTM_14, terra::vect(sf_14))
-    dtm <- leaflet::projectRasterForLeaflet(DTM_14_lf, "EPSG:4326")
+# Mask and project DTM
+dtm_m <- terra::mask(dtm, chm_mask)
+dtm_m <- terra::project(dtm_m, "EPSG:4326")
 } else {
-    dtm <- NULL
+dtm_m <- NULL
 }
 
-if (!is_empty(source_chm)) {
-    source_chm_lf <- terra::mask(source_chm, terra::vect(sf_14))
-    chm <- terra::project(source_chm_lf, "EPSG:4326")
-} else {
-    chm <- NULL
+  # Mask and project source_chm
+  if (!is_empty(chm)) {
+    chm_m <- terra::mask(chm, mask)
+    chm_m <- terra::project(chm_m, "EPSG:4326")
+  } else {
+    chm_m <- NULL
+  }
+
+  # Project chm_diff
+  diff <- if(!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
+  diff <- terra::clamp(diff)
+  diff_round <- terra::round(diff)
+
+  # Transform chm_mask
+  mask <- if(!is_empty_sfc(mask)) terra::project(chm_diff, "EPSG:4326") else NULL
+
+
+  m <- leaflet() %>%
+        addTiles()
+
+  
+        m <- addPolygons(m, data = dtm_m, color = "red", group = "Mask")
+      
+
+        if (!is_empty(dtm)) {
+          m <- addRasterImage(m, dtm, group = "DTM", maxBytes = Inf)
+        }
+
+        if (!is_empty(chm)) {
+          m <- addRasterImage(m, chm, group = "CHM", maxBytes = Inf)
+        }
+
+        if (!is_empty(diff_round)) {
+              colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
+              hex_values <- apply(col2rgb(colors), 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
+              
+              pal <- colorNumeric(hex_values, terra::values(diff_clamp), na.color = "transparent")
+              labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
+
+              m <- addRasterImage(m, diff_round, colors = pal, group = "Diff", maxBytes = Inf)
+              m <- addLegend(m,
+                            colors = colors,
+                            labels = labels,
+                            position = "bottomright",
+                            title = "Change in Tree Height (m)")
+          }
+
+        m <- addLayersControl(m,
+                              overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
+                              options = layersControlOptions(collapsed = FALSE))
+
+  return(m)
 }
 
-
-diff <- if(!is_empty(chm_diff_test)) terra::project(chm_diff_test, "EPSG:4326") else NULL
-mask <- if(!is_empty_sfc(chm_mask)) sf::st_transform(sf::st_as_sf(chm_mask), 4326) else NULL
-pal <- if(!is.null(mask)) "rgba(173, 216, 230, 0.4)" else NULL
-
-
-m <- leaflet() %>%
-    addTiles() %>%
-    addProviderTiles(providers$OpenTopoMap)
-
-    if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-        m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-    }
-
-    if (!is_empty(dtm)) {
-        m <- addRasterImage(m, dtm, group = "DTM", maxBytes = Inf)
-    }
-
-    if (!is_empty(chm)) {
-        m <- addRasterImage(m, chm, group = "CHM", maxBytes = Inf)
-    }
-
-
-    if (!is_empty(diff_round)) {
-        colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
-        rgb_values <- col2rgb(colors)
-
-        # If you want to get them in the common #RRGGBB format:
-        hex_values <- apply(rgb_values, 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
-
-        pal <- colorNumeric(hex_values, values(diff_clamp),na.color = "transparent")
-        labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
-
-        m <- addRasterImage(m, diff_round, colors = pal, group = "Diff", maxBytes = Inf)
-        m <- addLegend(m, 
-                    colors = colors, 
-                    labels = labels, 
-                    position = "bottomright",
-                    title = "Change in Tree Height (m)")
-    }
-
-    m <- addLayersControl(m,
-                        overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
-                        options = layersControlOptions(collapsed = FALSE))
-
-m
 
 mask_raster <- function(raster) {
 
