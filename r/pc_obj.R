@@ -41,16 +41,35 @@ pc_obj <- setRefClass(
       .self$mask <<- mask_pc(.self$LPC)
     },
     set_crs = function(crs) {
-      st_crs(.self$LPC) <- crs
-      .self$LPC <- st_transform(.self$LPC, crs)
-      .self$xyz <- data.frame(X = .self$LPC@data$X,
-                                    Y = .self$LPC@data$Y,
-                                    Z = .self$LPC@data$Z,
-                                    ReturnNumber = .self$LPC@data$ReturnNumber,
-                                    NumberOfReturns = .self$LPC@data$NumberOfReturns,
-                                    Classification = .self$LPC@data$Classification
-                                    )
-
+      crs <- as.integer(crs)
+      current_crs <- st_crs(.self$LPC)
+      # If there's an existing CRS
+      if (!is.null(current_crs)) {
+        cat("The current CRS for LPC is:", current_crs$WKT, "\n")  # Reporting the existing CRS in WKT format
+        
+        # Check if the new CRS is the same as the existing one
+        if (current_crs == st_crs(crs)) {
+          cat("The new CRS is the same as the current CRS. No change needed.\n")
+          return()
+        } else {
+          cat("Changing and transforming to the new CRS...\n")
+          st_crs(.self$LPC) <- crs
+          .self$LPC <- st_transform(.self$LPC, crs)
+        }
+      } else {
+        cat("The LPC does not have an associated CRS.\n")
+        cat("Assigning and transforming to the new CRS...\n")
+        st_crs(.self$LPC) <- crs
+        .self$LPC <- st_transform(.self$LPC, crs)
+      }
+      .self$xyz <- data.frame(
+        X = .self$LPC@data$X,
+        Y = .self$LPC@data$Y,
+        Z = .self$LPC@data$Z,
+        ReturnNumber = .self$LPC@data$ReturnNumber,
+        NumberOfReturns = .self$LPC@data$NumberOfReturns,
+        Classification = .self$LPC@data$Classification
+      )
     },
     get_data = function() {
       return(.self$xyz)

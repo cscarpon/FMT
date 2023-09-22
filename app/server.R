@@ -3,7 +3,8 @@ server = function(input, output, session) {
 ## Selection and parameters
 
       # Create a reactiveValues object to store the LAS files
-      rv <- reactiveValues(console_output = list())
+       ## Selection and parameters
+  rv <- reactiveValues(console_output = list(), pc1 = NULL, pc2 = NULL, crs = NULL, resolution = NULL, out_dir = NULL, union_mask = NULL, classified_diff = NULL, results = NULL)
 
       #Server logic to accept the Resolution, CRS, and Output Directory
       observeEvent(input$anotherEvent, {
@@ -12,17 +13,19 @@ server = function(input, output, session) {
         # Use rv$resolution, rv$crs, rv$out_dir here
       })
 
-
       #Server logic to confirm the Resolution, CRS, and Output Directory inputs
       observeEvent(input$confirm, {
-        rv$resolution <- input$resolution
-        rv$crs <- input$crs
+        res <- as.integer(input$resolution)
+        rv$resolution <- res
+        crs <- as.integer(input$crs)
+        rv$crs <- crs
         rv$out_dir <- input$out_dir
         # Print out the values to the console for debugging
         print(paste0("Resolution: ", rv$resolution))
         print(paste0("CRS: ", rv$crs))
         print(paste0("Output directory: ", rv$out_dir))
       })
+
 
       #Server logic to load PC1 from Directory
         observeEvent(input$file1, {
@@ -33,12 +36,14 @@ server = function(input, output, session) {
           load(inFile$datapath)
           rv$pc1 <- pc_obj
         } else {
-          rv$pc1 <- pc_obj$new(inFile$datapath)
+          pc1 <- pc_obj$new(inFile$datapath)
+          pc1$set_crs(rv$crs)
+          rv$pc1 <- pc1
         }
           
         # Update selected objects dropdown
         updateSelectInput(session, "selected_obj", choices = c("pc1", names(rv)))
-        updateSelectInput(session, "selected_obj2", choices = c("pc1", names(rv)))
+        updateSelectInput(session, "selected_obj2", choices = c("pc2", names(rv)))
         print(paste("Updated selected_obj choices: ", toString(names(rv))))
       })
 
@@ -49,9 +54,11 @@ server = function(input, output, session) {
             return(NULL)
         } else if (tools::file_ext(inFile$datapath) == "rdata") {
           load(inFile$datapath)
-          rv$pc2 <- pc_obj
+          rv$pc2 <- pc2
         } else {
-          rv$pc2 <- pc_obj$new(inFile$datapath)
+          pc2 <- pc_obj$new(inFile$datapath)
+          pc2$set_crs(rv$crs)
+          rv$pc2 <- pc2
         }
         # Update selected objects dropdown
         updateSelectInput(session, "selected_obj", choices = c("pc1", "pc2", names(rv)))  # Added pc3 here
@@ -60,14 +67,14 @@ server = function(input, output, session) {
       })
 
       #Selecting which PC is PC1
-      selected_las <- reactive({
+       selected_las <- reactive({
         req(input$selected_obj)
         print(paste("Current selected_obj for PC 1: ", input$selected_obj))
         rv[[input$selected_obj]]
       })
 
       #Selecting which PC is PC2
-      selected_las2 <- reactive({
+      selected_las2 <- reactive({ 
         req(input$selected_obj2)
         print(paste("Current selected_obj for PC 2: ", input$selected_obj2))
         rv[[input$selected_obj2]]
@@ -80,81 +87,129 @@ server = function(input, output, session) {
         print(paste("Finished executing task: Convert to XYZ for", input$selected_las))
       })
 
-      #Button logic to Align both CHMs from each PC
+      #Building the DTM for the first PC with Text Prompts
+      observeEvent(input$dtm1, {
+        req(rv, selected_las())
+
+        tryCatch({
+            new_message <- paste0("Executing task: Generate DTM1 for ", selected_las()$filename)
+            rv$console_output <- c(rv$console_output, list(new_message))
+
+            #Calling the DTM Function
+            dtm <- selected_las()$to_dtm(rv$resolution)
+            rv$pc1$DTM <- dtm
+            #Printing the DTM statistics
+            object_message <- print(selected_las()$DTM)
+            rv$console_output <- c(rv$console_output, list(object_message))
+          }, error = function(e){
+            new_message <- paste("Error in creating DTM:", e$message)
+            rv$console_output <- c(rv$console_output, list(new_message))
+        })
+  })
+
+      observeEvent(input$dtm2, {
+
+        #Ensuring that the resolution and the PC are selected
+        req(rv, selected_las2())
+
+        #Pushing the text prompt for DTM2 to the console
+        tryCatch({
+          new_message <- paste0("Executing task: Generate DTM2 for ", selected_las2()$filename)
+          rv$console_output <- c(rv$console_output, list(new_message))
+          dtm <- selected_las2()$to_dtm(rv$resolution)
+          rv$pc2$DTM <- dtm
+
+          #Printing the DTM statistics
+          object_message <- print(selected_las2()$DTM)
+          rv$console_output <- c(rv$console_output, list(object_message))
+          }, error = function(e){
+            new_message <- paste("Error in creating DTM:", e$message)
+            rv$console_output <- c(rv$console_output, list(new_message))
+        })
+      })
+
+      observeEvent(input$chm1, {
+          tryCatch({
+          new_message <- paste0("Executing task: Generate CHM1 for ", selected_las()$filename)
+          rv$console_output <- c(rv$console_output, list(new_message))
+          chm1 <- rv$pc1$to_chm(resolution = rv$resolution)
+          rv$pc1$CHM <- chm1
+
+          object_message <- print(selected_las()$CHM)
+          rv$console_output <- c(rv$console_output, list(object_message))
+          }, error = function(e){
+            new_message <- paste("Error in creating CHM:", e$message)
+            rv$console_output <- c(rv$console_output, list(new_message))
+        })
+      })
+
+      observeEvent(input$chm2, {
+        tryCatch({
+          new_message <- paste0("Executing task: Generate CHM2 for ", selected_las2()$filename)
+          rv$console_output <- c(rv$console_output, list(new_message))
+          chm2 <- rv$pc2$to_chm(resolution = rv$resolution)
+          rv$pc2$CHM <- chm2
+
+          object_message <- print(selected_las2()$CHM)
+          rv$console_output <- c(rv$console_output, list(object_message))
+          }, error = function(e) {
+            new_message <- paste("Error in creating CHM2:", e$message)
+            rv$console_output <- c(rv$console_output, list(new_message))
+        })
+      })
+
       observeEvent(input$align_chms, {
-        # Ensure the DTMs exist and have been processed for each pc_obj
-        req(selected_las()$CHM, selected_las2()$CHM, selected_las2()$mask)
-        print(paste("Running Pre-Processing"))
-        processed_chm <- process_raster(selected_las()$CHM, selected_las2()$CHM, method = "bilinear")
-        print(paste("Pre-Processing Complete"))
-        # Save the processed raster in the rv list so it can be accessed elsewhere
-        rv$pc1$CHM <- processed_chm
+        req(selected_las()$CHM, selected_las2()$CHM, selected_las()$mask, rv)
+        new_message <- "Running Raster Alignment"
+        rv$console_output <- c(rv$console_output, list(new_message))
+        
+        tryCatch({
+          processed_chm <- process_raster(rv$pc1$CHM, rv$pc2$CHM, rv$pc1$mask, rv$pc2$mask, crs = rv$crs, method = "bilinear")
+          print("Processed CHM 1:")
+          print(processed_chm[[1]])
+
+          print("Processed CHM 2:")
+          print(processed_chm[[2]])
+
+          rv$pc1$CHM <- processed_chm[[1]]
+          rv$pc2$CHM <- processed_chm[[2]]
+          rv$union_mask <- processed_chm[[3]]
+
+          
+          new_message <- "Raster Alignment Complete"
+          rv$console_output <- c(rv$console_output, list(new_message))
+          
+        }, error = function(e){
+          new_message <- paste("Error in aligning CHMs:", e$message)
+          rv$console_output <- c(rv$console_output, list(new_message))
+        })
       })
 
       #Button logic to classify the difference between the two CHMs
       observeEvent(input$classify_chm, {
         # Ensure the DTMs exist and have been processed for each pc_obj
-        req(selected_las()$CHM, selected_las2()$CHM)
-        print(paste("Running Classification"))
-        classified_diff <- CHM_diff_classify(selected_las()$CHM, selected_las2()$CHM)
-        diff_class <- terra::mask(classified_diff, terra::vect(selected_las2()$mask))
-        print(paste("Classification Complete"))
-        # Save the processed raster in the rv list so it can be accessed elsewhere
-        rv$classified_diff <- diff_class
-      })
-
-      #Building the DTM for the first PC with Text Prompts
-      observeEvent(input$dtm1, {
-        req(rv$resolution, selected_las())
-
-        #Building the messages to push to the console
-        new_message <- paste0("Executing task: Generate DTM1 for ", selected_las()$filename)
+        req(rv$pc1$CHM, rv$pc2$CHM, rv)
+        new_message <- "Running Classification"
         rv$console_output <- c(rv$console_output, list(new_message))
 
-        #Calling the DTM Function
-        selected_las()$to_dtm(rv$resolution)  # use rv$resolution here
+        tryCatch({
+          
+          classified_diff <- CHM_diff_classify(rv$pc1$CHM, rv$pc2$CHM)
+          diff_class <- terra::mask(classified_diff, rv$union_mask)
 
-        #Printing the DTM statistics
-        object_message <- print(selected_las()$DTM)
-        rv$console_output <- c(rv$console_output, list(object_message))
+          # Save the processed raster in the rv list so it can be accessed elsewhere
+          rv$classified_diff <- diff_class
 
-
-        #Printing the closing message to the console.
-        new_message <- paste("Finished executing task: Generate DTM1 for", selected_las()$filename)
-        rv$console_output <- c(rv$console_output, list(new_message))
+          new_message <- "Classification Complete"
+          rv$console_output <- c(rv$console_output, list(new_message))
+          
+        }, error = function(e){
+          new_message <- paste("Error in Classifying CHMs:", e$message)
+          rv$console_output <- c(rv$console_output, list(new_message))
+        })
       })
 
-      observeEvent(input$dtm2, {
-
-        #Ensuring that the resolution and the PC are selected
-        req(rv$resolution, selected_las2())
-
-        #Pushing the text prompt for DTM2 to the console
-        new_message <- paste0("Executing task: Generate DTM2 for ", selected_las2()$filename)
-        rv$console_output <- c(rv$console_output, list(new_message))
-        selected_las2()$to_dtm(rv$resolution)  # use rv$resolution here
-
-
-        #Printing the DTM statistics
-        object_message <- print(selected_las2()$DTM)
-        rv$console_output <- c(rv$console_output, list(object_message))
-
-        #Printing the closing message to the console.
-        new_message <- paste("Finished executing task: Generate DTM2 for", selected_las2()$filename)
-        rv$console_output <- c(rv$console_output, list(new_message))
-      })
-
-      observeEvent(input$chm1, {
-        print(paste("Executing task: Generate CHM for", selected_las()$filename))
-        selected_las()$to_chm(resolution = rv$resolution)
-        print(paste("Finished executing task: Generate CHM for", selected_las()$filename))
-      })
-
-      observeEvent(input$chm2, {
-        print(paste("Executing task: Generate CHM for", selected_las2()$filename))
-        selected_las2()$to_chm(resolution = rv$resolution)
-        print(paste("Finished executing task: Generate CHM for", selected_las2()$filename))
-      })
+  
 
       observeEvent(input$raster_statistics, {
         # Ensure the DTMs exist and have been processed for each pc_obj
@@ -245,73 +300,35 @@ server = function(input, output, session) {
                               labs(x = "Category", y = "Area (m^2)", fill = "Category") +
                               theme_bw() +
                               ggtitle("Area of each height change category")
-            plot(results_plot)
+    plot(results_plot)
           })
         })
 
+## Plot Leaflet
 
-    observeEvent(input$plot_leaf, {
-      output$leafletmap <- renderLeaflet({
-        print(paste("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format"))
-        dtm <- if(!is_empty(selected_las()$DTM)) terra::project(selected_las()$DTM, "EPSG:4326") else NULL
-        chm <- if(!is_empty(selected_las()$CHM)) terra::project(selected_las()$CHM, "EPSG:4326") else NULL
-        diff <- if(!is_empty(rv$classified_diff)) terra::project(rv$classified_diff, "EPSG:4326") else NULL
-        mask <- if(!is_empty_sfc(selected_las()$mask)) sf::st_transform(selected_las()$mask, 4326) else NULL
-        pal <- if(!is.null(mask)) "rgba(173, 216, 230, 0.4)" else NULL
-
-        m <- leaflet() %>%
-          addProviderTiles(providers$OpenStreetMap)
-
-        if (!is_empty(dtm)) {
-          m <- addRasterImage(m, raster::raster(dtm), group = "DTM", maxBytes = Inf)
-        }
-
-        if (!is_empty(chm)) {
-          m <- addRasterImage(m, raster::raster(chm), group = "CHM", maxBytes = Inf)
-        }
-
-        if (!is_empty(diff)) {
-
-          # Color palette
-          bins <- c(1, 2, 3, 4, 5, NA)  # Specify your bins, in this case, 1 to 5 and NA
-          palette <- c("red", "orange", "white", "lightgreen", "darkgreen", "black")  # Color for each bin, NA mapped to transparent
-          labels <- c("Loss - Greater than 10m", "Loss - from 2.5m to 10m", "No change", "Gain - from 2.5m to 10m", "Gain - Greater than 10m", "Out of range")  # Labels for each bin
-          pal <- colorBin(palette = palette, bins = bins, na.color = "black")  # Create color palette function with colorBin
-
-          diff_raster <- raster::raster(diff)
-          values(diff_raster)[is.na(values(diff_raster))] <- NA  # Make sure NAs in diff are really NAs
-          
-          m <- addRasterImage(m, diff_raster, group = "CHM_Difference", maxBytes = Inf, colors = pal)
-          
-          if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-            m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-          }
-
-          m <- addLayersControl(
-            m,
-            overlayGroups = c("DTM", "CHM", "CHM_Difference", "Mask"),
-            options = layersControlOptions(collapsed = FALSE)
-          )
-
-          m <- addLegend(
-            m,
-            pal = pal,
-            values = ~bins,
-            position = "bottomright",
-            title = "Change in Height",
-            labels = labels
-          )
-          
-          print(paste("Completed task: Plot Leaflet"))
-          return(m)
-        }
-      })
+     map_data <- reactive({
+      req(input$plot_leaf, rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
+      displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
     })
+
+    output$leafletmap <- renderLeaflet({
+      map_data()
+    })
+
+    # observeEvent(input$plot_leaf, {
+    #   output$leafletmap <- renderLeaflet({
+    #     req(rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
+    #     print(paste("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format"))
+    #     m <- displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
+    #     m
+    #     print(paste("Map has been plotted. Please check the Leaflet tab"))
+    #     })
+    #   })
 
 ## Initialized Leaflet
 
   observeEvent(rv$pc1, {
-     if(!is.null(rv$pc1)) {
+     if(!is.null(rv$pc1$mask)) {
       print(paste("The mask for PC 1 is plotted"))
       output$leafletmap <- renderLeaflet({
         mask <- if(!is_empty_sfc(rv$pc1$mask)) sf::st_transform(rv$pc1$mask, 4326) else NULL
