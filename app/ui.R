@@ -2,18 +2,14 @@ library(shiny)
 
 fluidPage(
     titlePanel("Forest Monitoring Tool (FMT)"),
-    # This is the text message ontop of the prompt
-    # textOutput("text"),
-    # This is the console output
-    
     sidebarLayout(
       sidebarPanel(
-        fileInput("file1", "Choose first LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
-        fileInput("file2", "Choose second LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
         numericInput("resolution", "Resolution:", value = 1),
         numericInput("crs", "CRS:", value = 4326),
         textInput("out_dir", "Output directory:", value = paste0(getwd(),"/data/" )),
         actionButton("confirm", "Confirm Inputs"),
+        fileInput("file1", "Choose first LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
+        fileInput("file2", "Choose second LAS file", accept = c(".las", ".laz", ".xyz", ".rdata")),
         wellPanel(
           title = "Data Processing",
           selectInput("selected_obj", "Select Point Cloud Object to process and to plot", choices = NULL),
