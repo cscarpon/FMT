@@ -23,14 +23,14 @@ RUN install2.r --error \
     reticulate
 
 # Copy the app to the image
-COPY ./app /srv/shiny-server/FMT/app
-COPY ./R /srv/shiny-server/FMT/r
+COPY ./fmt /srv/shiny-server/
+COPY ./r /srv/shiny-server/r
 
 # Make all app files readable (solves potential issues when the app runs)
-RUN chmod -R +r /srv/shiny-server/FMT
+RUN chmod -R +r /srv/shiny-server/
 
 # Set the working directory to the app directory
-WORKDIR /srv/shiny-server/myapp
+WORKDIR /srv/shiny-server/
 
 # Expose port 3838 to make the Shiny app available
 EXPOSE 3838
