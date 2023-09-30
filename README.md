@@ -69,19 +69,31 @@ Powershell is similar to the terminal which allows command line inputs which is 
 Windows requires that you set `PATH` variables to let Windows know where a program's executable `.exe` file is. You can permanently set these, are you can temporarily set it. Currently, we are going to temporarily let Windows know where R is if it has not found it.
 
 1. In the Powershell type `$env:Path += ";C:\Program Files\R\R-4.2.0\bin"` Change the version number to the one for the most recent R build on your computer.
+   
 ![alt text](images/path.png) 
+
 2. This line will tell Windows to download the relevant packages: `Rscript.exe -e "install.packages(c('lidR', 'shiny', 'shinyFiles', 'sf', 'leaflet', 'rgl', 'shinydashboard', 'terra','ggplot2','scales','reticulate'))"`
+
 ![alt text](images/install.png)
+
 3. Once this has been installed and downloaded, we can clone the repo to our local drive. Select the green "Code" button and select the HTTPS URL.
+
 ![alt text](images/clone.png)
+
 4. Paste that code into the terminal
+
 ![alt text](images/download.png)
-5. Now change directory `cd` to the newly downloaded repo
-`cd fmt`
+
+5. Now change directory `cd` to the newly downloaded repo `cd fmt`
+
 ![alt text](images/cd.png)
+
 6. Run the app
+
 `Rscript.exe fmt/app.R`
+
 ![alt text](images/app.png)
+
 ``
 
 ## Docker
