@@ -1,5 +1,5 @@
 # Forest Monitoring Tool (FMT)
-A Lidar Tool designed to help foresters, scientists, citizen scientists, and anyone who is curious enough to explore.
+A Lidar Tool that is designed to help foresters, scientists, citizen scientists, and anyone who is curious enough to explore.
 
 The tool combines most pre-processing, processing, and post-processing procedures for any point cloud, raster, and shapefile data in the click of a few buttons.
 
@@ -76,11 +76,11 @@ Windows requires that you set `PATH` variables to let Windows know where a progr
 
 ![alt text](images/install.png)
 
-3. Once this has been installed and downloaded, we can clone the repo to our local drive. Select the green "Code" button and select the HTTPS URL.
+3. We can clone the repo to our local drive. Select the green "Code" button and select the HTTPS URL. 
 
 ![alt text](images/clone.png)
 
-4. Paste that code into the terminal
+4. Paste that code into the terminal type `git clone [fmt/url]`
 
 ![alt text](images/download.png)
 
@@ -98,7 +98,7 @@ Windows requires that you set `PATH` variables to let Windows know where a progr
 
 ## Docker
 
-Image and Container are made, debugging on JS react values in Chrome
+The image and container are made, debugging on JS react values in Chrome
 ## Server Usage
 
 In the progress of building and deploying. 
