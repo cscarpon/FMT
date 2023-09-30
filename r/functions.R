@@ -49,30 +49,41 @@ CHM_diff_classify <- function(earlier, later) {
     # Write the output
     return(diff_class)
 }
-#Calculate statistics for a raster and return a data frame. Currently only does area of each class.
-raster_stats <- function(raster) {
-  rast_freq <- terra::freq(rast)
-  rast_freq$area <- rast_freq$count * 0.5 #Square metres
-  return(rast_freq)
-}
+#Calculate statistics for a raster and return a data frame to plot in ggplot2
 
-plot_stats <- function(rast_stats) {
+plot_stats <- function(difference_raster) {
+  rast_freq <- terra::freq(difference_raster)
+  rast_freq$area <- rast_freq$count * 0.5 #Square metres
+
+  # Handling NaN
+  rast_freq$value[is.nan(rast_freq$value)] <- "NaN"
+  
+  # Define class labels
   class_labels <- c("Large Loss: > 10m loss",
                     "Loss: 2.5m to 10m loss",
                     "Minimal change: -2.5m to 2.5m",
                     "Growth: 2.5m to 10m growth",
-                    "Large Growth: > 10m growth")
+                    "Large Growth: > 10m growth",
+                    "NaN")
+  
+  # Define class values
+  class_values <- c("1", "2", "3", "4", "5", "NaN")
+  
+  # Convert value to a factor
+  rast_freq$value <- factor(rast_freq$value, levels = class_values, labels = class_labels)
 
   # Plot the area column with different colors for each bar and a legend
-  ggplot(rast_stats, aes(x = value, y = area, fill = factor(value))) +
+  ggplot(rast_freq, aes(x = value, y = area, fill = factor(value))) +
     geom_bar(stat = "identity") +
     labs(x = "Loss and Gain", y = "Area (m^2)", fill = "Class") +
-    ggtitle("names of things") +
+    scale_x_discrete(labels=c('Large Loss', 'Loss', 'Minimal Change', 'Growth', 'Large Growth')) +
+    ggtitle("Raster Statistics for Change Detection") +
     scale_fill_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00"),
                       labels = class_labels, drop = FALSE) +
     theme_minimal() +
     scale_y_continuous(labels = comma)
 }
+
 #Check to ensure SpatRaster is not empty - used for Leaflet testing
 is_empty <- function(raster) {
     all(is.na(terra::values(raster)))
@@ -180,39 +191,58 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   diff <- terra::clamp(diff, 1, 5)
   diff_round <- round(diff)
 
-  m <- leaflet() %>%
-        addTiles()
+  m <- leaflet::leaflet() %>%
+    leaflet::addTiles()
 
-  
-      m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-    
+  m <- leaflet::addPolygons(m, data = mask, color = "red", group = "Mask")
+  if (!is_empty(dtm)) {
+    m <- leaflet::addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
+  }
 
-      if (!is_empty(dtm)) {
-        m <- addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
-      }
+  if (!is_empty(chm)) {
+    m <- leaflet::addRasterImage(m, chm_m, group = "CHM", maxBytes = Inf)
+  }
 
-      if (!is_empty(chm)) {
-        m <- addRasterImage(m, chm_m, group = "CHM", maxBytes = Inf)
-      }
+  if (!is_empty(diff_round)) {
+    colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
+    hex_values <- apply(col2rgb(colors), 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
+    pal <- leaflet::colorNumeric(hex_values,
+                                 terra::values(diff_round),
+                                 na.color = "transparent")
+    labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
 
-      if (!is_empty(diff_round)) {
-            colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
-            hex_values <- apply(col2rgb(colors), 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
-            
-            pal <- colorNumeric(hex_values, terra::values(diff_round), na.color = "transparent")
-            labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
+    m <- leaflet::addRasterImage(m,
+                                 diff_round,
+                                 colors = pal,
+                                 group = "Diff",
+                                 maxBytes = Inf)
+    m <- leaflet::addLegend(m,
+                            colors = colors,
+                            labels = labels,
+                            position = "bottomright",
+                            title = "Change in Tree Height (m)")
+  }
 
-            m <- addRasterImage(m, diff_round, colors = pal, group = "Diff", maxBytes = Inf)
-            m <- addLegend(m,
-                          colors = colors,
-                          labels = labels,
-                          position = "bottomright",
-                          title = "Change in Tree Height (m)")
-        }
+  m <- leaflet::addLayersControl(m,
+                                 overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
+                                 options = leaflet::layersControlOptions(collapsed = FALSE))
 
-      m <- addLayersControl(m,
-                            overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
-                            options = layersControlOptions(collapsed = FALSE))
+  return(m)
+}
 
+initial_map <- function(mask) {
+  mask <- if (!is_empty_sfc(mask)) sf::st_transform(mask, 4326) else NULL
+
+  m <- leaflet::leaflet() %>%
+    leaflet::addTiles()
+
+  if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
+    m <- leaflet::addPolygons(m, data = mask, color = "red", group = "Mask")
+  }
+  m <- leaflet::addLayersControl(
+    m,
+    overlayGroups = c("Mask"),
+    options = leaflet::layersControlOptions(collapsed = FALSE)
+  )
   return(m)
 }

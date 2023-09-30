@@ -14,14 +14,12 @@ fluidPage(
           title = "Data Processing",
           selectInput("selected_obj", "Select Point Cloud Object to process and to plot", choices = NULL),
           selectInput("selected_obj2", "Select Point Cloud Object for comparison analysis", choices = NULL),
-          actionButton("xyz", "Convert to XYZ", title = "Convert the input file to XYZ format"),
           actionButton("dtm1", "Generate DTM for PC1"),
           actionButton("dtm2", "Generate DTM for PC2"),
           actionButton("chm1", "Generate CHM for PC1"),
           actionButton("chm2", "Generate CHM for PC2"),
           actionButton("align_chms", "Align CHMs", title = "Aligns PC1 to PC2"),
           actionButton("classify_chm", "Classify CHM", title = "Difference and Classify CHMs"),
-          actionButton("raster_statistics", "Calculate Statistics", title = "Calculate Raster Statistics")
         ),
         tags$hr(),
         wellPanel(
@@ -39,7 +37,7 @@ fluidPage(
           actionButton("plot_leaf", "Plot to Leaflet", title = "Plot the current objects to a leaflet map"),
           actionButton("plot_las", "Plot LAS", title = "Plot the current LAS object"),
           actionButton("plot_results", "Plot Results", title = "Plot the difference results")
-        )
+        ) 
       ),
       mainPanel(
         tabsetPanel(
