@@ -48,3 +48,45 @@ Post Processing:
 
 Saving .laz, .xyz, .las
 Mapping
+
+
+## Windows Installation
+
+The FMT is currently built in Windows 11. 
+
+To get started with the tool, you will need to download:
+
+1. [Download base R from a mirror closes to you](https://cran.r-project.org/mirrors.html)
+2. [Download the most recent version of RTools](https://cran.r-project.org/bin/windows/Rtools/)
+3. [Download Windows Powershell if you do not have it](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.3)
+
+You might need to restart your computer at this point for Windows to recognise these downloads.
+
+## Powershell
+
+Powershell is similar to the terminal which allows command line inputs which is how we are going to install the app, install the libraries required for the app, and how we will also run the app.
+
+Windows requires that you set `PATH` variables to let Windows know where a programs executable `.exe` file is. You can permanently set these, are you can temporarily set it. Currently we are going to temporarily let Windows know where R is, if it has not found it.
+
+1. In the Powershell type `$env:Path += ";C:\Program Files\R\R-4.2.0\bin"` Change the version number to the one that is for the most recent R build on your computer.
+![alt text](images/path.png) 
+2. This line will tell Windows to download the relevant packages: `Rscript.exe -e "install.packages(c('lidR', 'shiny', 'shinyFiles', 'sf', 'leaflet', 'rgl', 'shinydashboard', 'terra','ggplot2','scales','reticulate'))"`
+![alt text](images/install.png)
+3. Once this has been installed and downloaded, we can clone the repo to our local drive. Select the green "Code" button and select the HTTPS URL.
+![alt text](images/clone.png)
+4. Paste that code into the terminal
+![alt text](images/download.png)
+5. Now change directory `cd` to the newly downloaded repo
+`cd fmt`
+![alt text](images/cd.png)
+6. Run the app
+`Rscript.exe fmt/app.R`
+![alt text](images/app.png)
+``
+
+## Docker
+
+Image and Container are made, debugging on JS react values in Chrome
+## Server Usage
+
+In progress of building and deploying. 
