@@ -1,23 +1,23 @@
 server = function(input, output, session) {
 
-      autoInvalidate <- reactiveTimer(10000)
-      observe({
-        autoInvalidate()
-        cat(".")
-      })
+      # autoInvalidate <- reactiveTimer(10000)
+      # observe({
+      #   autoInvalidate()
+      #   cat(".")
+      # })
       ## Selection and parameters
-
+  
       # Create a reactiveValues object to store the LAS files
       ## Selection and parameters
     rv <- reactiveValues(console_output = list(),
-                          pc1 = NULL,
-                          pc2 = NULL,
-                          crs = NULL,
-                          resolution = NULL,
-                          out_dir = NULL,
-                          union_mask = NULL,
-                          classified_diff = NULL,
-                          results = NULL)
+                         pc1 = NULL,
+                         pc2 = NULL,
+                         crs = NULL,
+                         resolution = NULL,
+                         out_dir = NULL,
+                         union_mask = NULL,
+                         classified_diff = NULL,
+                         results = NULL)
 
     #Server logic to accept the Resolution, CRS, and Output Directory
     observeEvent(input$anotherEvent, {
@@ -199,6 +199,7 @@ server = function(input, output, session) {
     })
 
     #Button logic to classify the difference between the two CHMs
+    
     observeEvent(input$classify_chm, {
       # Ensure the DTMs exist and have been processed for each pc_obj
       req(rv$pc1$CHM, rv$pc2$CHM, rv)
@@ -220,18 +221,6 @@ server = function(input, output, session) {
         new_message <- paste("Error in Classifying CHMs:", e$message)
         rv$console_output <- c(rv$console_output, list(new_message))
       })
-    })
-
-
-
-    observeEvent(input$raster_statistics, {
-      # Ensure the DTMs exist and have been processed for each pc_obj
-      req(rv$classified_diff)
-      print(paste("Running Raster Statistics"))
-      stats <- raster_stats(rv$classified_diff)
-      print(paste("Raster Statistics Complete"))
-      # Save the processed raster in the rv list so it can be accessed elsewhere
-      rv$results <- stats
     })
 
 ## Save Buttons
@@ -285,7 +274,6 @@ server = function(input, output, session) {
       lapply(rv$console_output, print)  # Display all console output messages
     })
 
-
   ## Plot Las
     observeEvent(input$plot_las, {
             output$plot3D <- renderRglwidget({
@@ -297,67 +285,34 @@ server = function(input, output, session) {
   ##Plot Results
 
       observeEvent(input$plot_results, {
-        output$plot2D <- plotOutput({
-          req(rv$results)
-          df <- rv$results
-          df$Category <- factor(df$value,
-                    levels = 1:5,
-                    labels = c("Loss - Greater than 10m",
-                                "Loss - from 2.5m to 10m",
-                                "No distinguishable change",
-                                "Gain - from 2.5m to 10m",
-                                "Gain - Greater than 10m"))
-          results_plot <- ggplot(df, aes(x = Category, y = area, fill = Category)) +
-                            geom_bar(stat = "identity") +
-                            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-                            labs(x = "Category", y = "Area (m^2)", fill = "Category") +
-                            theme_bw() +
-                            ggtitle("Area of each height change category")
-  plot(results_plot)
+        output$plot2D <- renderPlot({
+          req(rv$classified_diff)
+          plot_stats(rv$classified_diff)
         })
       })
 
-  ## Plot Leaflet
+   ## Plot Leaflet
+    # Define output$leafletmap outside of observeEvent
+      output$leafletmap <- renderLeaflet({
+        input$plot_leaf  # This line makes the renderLeaflet reactive to the button click
+        tryCatch({
+          req(rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
+          message("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format")
+          map <- displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
+          return(map)
+          message("Execution complete: Plot Leaflet.")
+        }, error = function(e) {
+          message("An error occurred: ", e$message)
+        })
+      })
 
-    map_data <- reactive({
-    req(input$plot_leaf, rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
-    displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
-  })
 
-  output$leafletmap <- renderLeaflet({
-    map_data()
-  })
-
-  # observeEvent(input$plot_leaf, {
-  #   output$leafletmap <- renderLeaflet({
-  #     req(rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
-  #     print(paste("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format"))
-  #     m <- displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
-  #     m
-  #     print(paste("Map has been plotted. Please check the Leaflet tab"))
-  #     })
-  #   })
-
-  ## Initialized Leaflet
-
+# itialized Leaflet
   observeEvent(rv$pc1, {
       if(!is.null(rv$pc1$mask)) {
       print(paste("The mask for PC 1 is plotted"))
       output$leafletmap <- renderLeaflet({
-        mask <- if(!is_empty_sfc(rv$pc1$mask)) sf::st_transform(rv$pc1$mask, 4326) else NULL
-        pal <- if(!is.null(mask)) "rgba(173, 216, 230, 0.4)" else NULL
-
-        m <- leaflet() %>%
-                addTiles()
-            if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-            m <- addPolygons(m, data = mask, color = "red", group = "Mask")
-          }
-          m <- addLayersControl(
-            m,
-            overlayGroups = c("Mask"),
-            options = layersControlOptions(collapsed = FALSE)
-          )
-          return(m)
+        initial_map(rv$pc1$mask)
       })
     }
   }, ignoreInit = TRUE, ignoreNULL = TRUE)
