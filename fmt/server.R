@@ -1,11 +1,4 @@
 server = function(input, output, session) {
-
-      # autoInvalidate <- reactiveTimer(10000)
-      # observe({
-      #   autoInvalidate()
-      #   cat(".")
-      # })
-      ## Selection and parameters
   
       # Create a reactiveValues object to store the LAS files
       ## Selection and parameters

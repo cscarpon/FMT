@@ -2,8 +2,9 @@ source("fmt/global.R")
 source("r/functions.R")
 source("r/pc_obj.R")
 
-reticulate::py_config()
+st_crs(las)
 
+density_output <- las_density(las, slice_size = 1)
 #Methods
 
 # to_dtm()        save_las()
@@ -12,14 +13,13 @@ reticulate::py_config()
 # save_pc()
 
 #Functions
-  
+
 process_raster(source, target, mask_layer)
 CHM_diff_classify(earlier, later)
 raster_stats(raster)
 mask_pc()
 
 reticulate::py_config()
-
 
 # conda_list()
 use_condaenv("point_clouds", required = TRUE)

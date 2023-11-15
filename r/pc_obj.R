@@ -6,6 +6,8 @@ pc_obj <- setRefClass(
     CHM = "SpatRaster",
     DTM = "SpatRaster",
     mask = "sfc",
+    shapes =  "list",
+    rasters =  "list",
     filepath =  "character",
     filename = "character"
   ),
