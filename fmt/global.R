@@ -8,9 +8,7 @@ library(ggplot2) # used for plotting
 library(dplyr) # used for data manipulation
 library(scales) # used for percent
 library(leaflet) # used for interactive map
-library(concaveman) # used for concave hull
 library(reticulate) # python in r
-library(nngeo) # used for st_nn
 library(gridExtra) # creates the grid index for density
 
 options(shiny.reactlog = TRUE)

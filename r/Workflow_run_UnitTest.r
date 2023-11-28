@@ -1,6 +1,6 @@
 source("fmt/global.R")
 source("r/functions.R")
-source("r/pc_obj.R")
+source("r/spatial_obj.R")
 
 st_crs(las)
 
@@ -30,12 +30,12 @@ py_install("brotli")
 
 
 path_14 <- "data/TTP_2014_decimate.laz"
-pc_14 <- pc_obj$new(path_14)
+pc_14 <- spatial_obj$new(path_14)
 
 pc_14$set_crs(32617)
 
 path_19 <- "data/TTP_2019_decimate.laz"
-pc_19 <- pc_obj$new(path_19)
+pc_19 <- spatial_obj$new(path_19)
 pc_19$set_crs(32617)
 
 

@@ -1,17 +1,36 @@
 server = function(input, output, session) {
   
-      # Create a reactiveValues object to store the LAS files
-      ## Selection and parameters
+    # Create a reactiveValues object to store the LAS files
+    ## Selection and parameters
     rv <- reactiveValues(console_output = list(),
-                         pc1 = NULL,
-                         pc2 = NULL,
-                         crs = NULL,
-                         resolution = NULL,
-                         out_dir = NULL,
-                         union_mask = NULL,
-                         classified_diff = NULL,
-                         results = NULL)
+                        in_dir = NULL,
+                        pc1 = NULL,
+                        pc2 = NULL,
+                        crs = NULL,
+                        resolution = NULL,
+                        out_dir = NULL,
+                        union_mask = NULL,
+                        classified_diff = NULL,
+                        results = NULL)
 
+    #Server logic to accept the the input directory
+    observeEvent(input$directoryEvent, {
+      # Make sure the values are set before using them
+      req(rv$in_dir)
+      # Use rv$resolution, rv$crs, rv$out_dir here
+    })
+
+    #Server logic plot the metadata info
+    observeEvent(rv$in_dir, {
+      if(!is.null(rv$in_dir)) {
+        output$plot2D <- renderPlot({
+          req(rv$in_dir)
+          plot_stats(rv$in_dir)
+        })
+      }
+    }
+  )      
+ 
     #Server logic to accept the Resolution, CRS, and Output Directory
     observeEvent(input$anotherEvent, {
       # Make sure the values are set before using them
@@ -32,7 +51,6 @@ server = function(input, output, session) {
       print(paste0("Output directory: ", rv$out_dir))
     })
 
-
     #Server logic to load PC1 from Directory
       observeEvent(input$file1, {
       inFile <- input$file1
@@ -40,9 +58,9 @@ server = function(input, output, session) {
           return(NULL)
       } else if (tools::file_ext(inFile$datapath) == "rdata") {
         load(inFile$datapath)
-        rv$pc1 <- pc_obj
+        rv$pc1 <- spatial_obj
       } else {
-        pc1 <- pc_obj$new(inFile$datapath)
+        pc1 <- spatial_obj$new(inFile$datapath)
         pc1$set_crs(rv$crs)
         rv$pc1 <- pc1
       }
@@ -62,7 +80,7 @@ server = function(input, output, session) {
         load(inFile$datapath)
         rv$pc2 <- pc2
       } else {
-        pc2 <- pc_obj$new(inFile$datapath)
+        pc2 <- spatial_obj$new(inFile$datapath)
         pc2$set_crs(rv$crs)
         rv$pc2 <- pc2
       }
@@ -194,7 +212,7 @@ server = function(input, output, session) {
     #Button logic to classify the difference between the two CHMs
     
     observeEvent(input$classify_chm, {
-      # Ensure the DTMs exist and have been processed for each pc_obj
+      # Ensure the DTMs exist and have been processed for each spatial_obj
       req(rv$pc1$CHM, rv$pc2$CHM, rv)
       new_message <- "Running Classification"
       rv$console_output <- c(rv$console_output, list(new_message))
@@ -299,7 +317,6 @@ server = function(input, output, session) {
         })
       })
 
-
 # itialized Leaflet
   observeEvent(rv$pc1, {
       if(!is.null(rv$pc1$mask)) {
@@ -310,3 +327,4 @@ server = function(input, output, session) {
     }
   }, ignoreInit = TRUE, ignoreNULL = TRUE)
 }
+

@@ -4,6 +4,7 @@ fluidPage(
     titlePanel("Forest Monitoring Tool (FMT)"),
     sidebarLayout(
       sidebarPanel(
+        textInput("in_dir", "Input directory:", value = paste0(getwd())),
         numericInput("resolution", "Resolution:", value = 1),
         numericInput("crs", "CRS:", value = 4326),
         textInput("out_dir", "Output directory:", value = paste0(getwd(),"/data/" )),
@@ -41,6 +42,7 @@ fluidPage(
       ),
       mainPanel(
         tabsetPanel(
+          tabPanel("Directory Data", plotOutput("plotmeta")),
           tabPanel("Leaflet Map", leafletOutput("leafletmap")),
           tabPanel("3D Plot", rglwidgetOutput("plot3D")),
           tabPanel("2D Plot", plotOutput("plot2D")),
@@ -52,5 +54,6 @@ fluidPage(
                               }
                             "))),
         verbatimTextOutput("console_output")
-      ))
-)
+      )
+    )
+)q
