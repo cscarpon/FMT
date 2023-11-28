@@ -3,7 +3,7 @@
 source("fmt/global.R")
 source("r/functions.R")
 source("fmt/server.R")
-source("r/pc_obj.R")
+source("r/spatial_obj.R")
 
 # Define the UI and server
 ui <- source("fmt/ui.R", local = TRUE)$value

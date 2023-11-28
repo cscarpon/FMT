@@ -1,18 +1,34 @@
-pc_obj <- setRefClass(
-  "point_cloud_container",
-  fields = list(
-    xyz = "data.frame",
-    LPC = "LAS",
-    CHM = "SpatRaster",
-    DTM = "SpatRaster",
-    mask = "sfc",
-    shapes =  "list",
-    rasters =  "list",
-    filepath =  "character",
-    filename = "character"
-  ),
-  methods = list(
-    initialize = function(file_path = character(0)) {
+spc <- setRefClass(
+  "spatial_container",
+    fields = list(
+      xyz = "data.frame",
+      LPC = "LAS",
+      CHM = "SpatRaster",
+      DTM = "SpatRaster",
+      mask = "sfc",
+      shapes = "list",
+      rasters = "list",
+      filepath = "character",
+      filename = "character",
+      metadata = "data.frame"
+    ),
+    methods <- list(
+      initialize <- function(file_path = character(0)) {
+        file_info <- extract_info(file_path)
+        .self$metadata <- file_info
+      },
+      select_files <- function(selection_input) {
+        if (is.null(selection_input)) {
+          return(NULL)
+        } else {
+          return(selection_input)
+        }
+      },
+
+    )
+)        
+
+
         lidR::set_lidr_threads(6)
         .self$filepath <- file_path
         .self$filename <- basename(file_path)

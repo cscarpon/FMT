@@ -1,3 +1,63 @@
+#Extract information from a file path to determine what shapefiles you have
+extract_info <- function(file_path) {
+  # Normalize the file path
+  path_normal <- normalizePath(file_path, mustWork = FALSE)
+  
+  # Check if the path exists
+  if (!file.exists(path_normal)) {
+    stop("Path does not exist: ", path_normal)
+  }
+  
+  # Define the pattern for file extensions
+  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json)$"
+  
+  # List files matching the pattern
+  data_list <- list.files(path_normal, pattern = exts, full.names = TRUE)
+  
+  # Initialize an empty data frame
+  meta_df <- data.frame(
+    id = numeric(),
+    file_path = character(),
+    ext = character(),
+    size_mb = numeric(),
+    creation_date = as.POSIXct(character())
+  )
+  
+  # Loop over the files and extract information
+  for (i in seq_along(data_list)) {
+    
+    object_id <- i
+    
+    # Extract file path
+    current_file_path <- data_list[i]
+    
+    # Extract file extension
+    ext <- tools::file_ext(current_file_path)
+    
+    # Get file size
+    size <- format(round(file.info(current_file_path)$size / (1024^2),2), nsmall = 2)
+    
+    # Get last modification date
+    date <- file.info(current_file_path)$mtime
+    formatted_date <- format(date, "%Y-%m-%d")
+    
+    # Append the information to the data frame
+    meta_df <- rbind(meta_df, data.frame(id = object_id,
+                                         file_path = current_file_path,
+                                         ext = ext,
+                                         size_mb = size,
+                                         creation_date = formatted_date,
+                                         stringsAsFactors = FALSE))
+  }
+  meta_df <- meta_df %>%
+    dplyr::arrange(ext) %>%
+    dplyr::mutate(id = dplyr::row_number()) %>%
+    dplyr::select(id, dplyr::everything())
+  
+  return(meta_df)
+}
+
+
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
 process_raster <- function(source, target, source_mask, target_mask, crs = rv$crs, method = "bilinear") {
   aligned <- FALSE
@@ -252,57 +312,58 @@ initial_map <- function(mask) {
 extract_info <- function(file_path) {
   # Normalize the file path
   path_normal <- normalizePath(file_path, mustWork = FALSE)
-
+  
   # Check if the path exists
   if (!file.exists(path_normal)) {
     stop("Path does not exist: ", path_normal)
   }
-
+  
   # Define the pattern for file extensions
   exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json)$"
-
+  
   # List files matching the pattern
   data_list <- list.files(path_normal, pattern = exts, full.names = TRUE)
-
+  
   # Initialize an empty data frame
   meta_df <- data.frame(
     id = numeric(),
     file_path = character(),
     ext = character(),
-    size = numeric(),
+    size_mb = numeric(),
     creation_date = as.POSIXct(character())
   )
-
+  
   # Loop over the files and extract information
   for (i in seq_along(data_list)) {
-
+    
     object_id <- i
-
+    
     # Extract file path
     current_file_path <- data_list[i]
-
+    
     # Extract file extension
     ext <- tools::file_ext(current_file_path)
-
+    
     # Get file size
-    size_mb <- format(round(file.info(current_file_path)$size / (1024^2),2), nsmall = 2)
-
+    size <- format(round(file.info(current_file_path)$size / (1024^2),2), nsmall = 2)
+    
     # Get last modification date
     date <- file.info(current_file_path)$mtime
-
+    formatted_date <- format(date, "%Y-%m-%d")
+    
     # Append the information to the data frame
     meta_df <- rbind(meta_df, data.frame(id = object_id,
                                          file_path = current_file_path,
                                          ext = ext,
-                                         size = size_mb,
-                                         creation_date = date,
+                                         size_mb = size,
+                                         creation_date = formatted_date,
                                          stringsAsFactors = FALSE))
   }
   meta_df <- meta_df %>%
     dplyr::arrange(ext) %>%
     dplyr::mutate(id = dplyr::row_number()) %>%
     dplyr::select(id, dplyr::everything())
-
+  
   return(meta_df)
 }
 
