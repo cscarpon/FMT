@@ -18,8 +18,8 @@ extract_info <- function(file_path) {
   meta_df <- data.frame(
     id = numeric(),
     file_path = character(),
-    ext = character(),
     size_mb = numeric(),
+    ext = character(),
     creation_date = as.POSIXct(character())
   )
   
@@ -30,6 +30,9 @@ extract_info <- function(file_path) {
     
     # Extract file path
     current_file_path <- data_list[i]
+    
+    current_file_path <- normalizePath(current_file_path, mustWork = FALSE)
+    
     
     # Extract file extension
     ext <- tools::file_ext(current_file_path)
@@ -44,8 +47,8 @@ extract_info <- function(file_path) {
     # Append the information to the data frame
     meta_df <- rbind(meta_df, data.frame(id = object_id,
                                          file_path = current_file_path,
-                                         ext = ext,
                                          size_mb = size,
+                                         ext = ext,
                                          creation_date = formatted_date,
                                          stringsAsFactors = FALSE))
   }

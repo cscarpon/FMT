@@ -1,9 +1,10 @@
 # Source the required scripts from local directory
 
 source("fmt/global.R")
-source("r/functions.R")
 source("fmt/server.R")
+source("r/functions.R")
 source("r/spatial_obj.R")
+source("r/meta_obj.R")
 
 # Define the UI and server
 ui <- source("fmt/ui.R", local = TRUE)$value

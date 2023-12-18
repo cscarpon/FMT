@@ -13,3 +13,4 @@ library(gridExtra) # creates the grid index for density
 
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)
+lidR::set_lidr_threads(6)
