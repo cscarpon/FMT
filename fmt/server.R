@@ -1,9 +1,10 @@
-server = function(input, output, session) {
+ server = function(input, output, session) {
   
     # Create a reactiveValues object to store the LAS files
     ## Selection and parameters
     rv <- reactiveValues(console_output = list(),
                         in_dir = NULL,
+                        metadata = NULL,
                         pc1 = NULL,
                         pc2 = NULL,
                         crs = NULL,
@@ -13,54 +14,31 @@ server = function(input, output, session) {
                         classified_diff = NULL,
                         results = NULL)
 
-    #Server logic to accept the the input directory
-    observeEvent(input$directoryEvent, {
-      # Make sure the values are set before using them
-      req(rv$in_dir)
-      # Use rv$resolution, rv$crs, rv$out_dir here
-    })
-
-    #Server logic plot the metadata info
-    observeEvent(rv$in_dir, {
-      if(!is.null(rv$in_dir)) {
-        output$plot2D <- renderPlot({
-          req(rv$in_dir)
-          plot_stats(rv$in_dir)
-        })
-      }
-    }
-  )      
- 
-    #Server logic to accept the Resolution, CRS, and Output Directory
-    observeEvent(input$anotherEvent, {
-      # Make sure the values are set before using them
-      req(rv$resolution, rv$crs, rv$out_dir)
-      # Use rv$resolution, rv$crs, rv$out_dir here
-    })
-
+        
     #Server logic to confirm the Resolution, CRS, and Output Directory inputs
     observeEvent(input$confirm, {
+      mo_dir <- mo$new(input$in_dir)
+      rev$metadata <- mo_dir
       res <- as.integer(input$resolution)
       rv$resolution <- res
       crs <- as.integer(input$crs)
       rv$crs <- crs
       rv$out_dir <- input$out_dir
+      
       # Print out the values to the console for debugging
-      print(paste0("Resolution: ", rv$resolution))
+      print(paste0("Metadata: ", rv$resolution))
+      print(paste0("Resolution: ", rv$metadata))
       print(paste0("CRS: ", rv$crs))
       print(paste0("Output directory: ", rv$out_dir))
     })
 
     #Server logic to load PC1 from Directory
-      observeEvent(input$file1, {
+    observeEvent(input$file1, {
       inFile <- input$file1
       if (is.null(inFile)) {
           return(NULL)
-      } else if (tools::file_ext(inFile$datapath) == "rdata") {
-        load(inFile$datapath)
-        rv$pc1 <- spatial_obj
       } else {
-        pc1 <- spatial_obj$new(inFile$datapath)
+        pc1 <- spatial_container$new(inFile$datapath)
         pc1$set_crs(rv$crs)
         rv$pc1 <- pc1
       }
@@ -76,11 +54,8 @@ server = function(input, output, session) {
       inFile <- input$file2
       if (is.null(inFile)) {
           return(NULL)
-      } else if (tools::file_ext(inFile$datapath) == "rdata") {
-        load(inFile$datapath)
-        rv$pc2 <- pc2
       } else {
-        pc2 <- spatial_obj$new(inFile$datapath)
+        pc2 <- spatial_container$new(inFile$datapath)
         pc2$set_crs(rv$crs)
         rv$pc2 <- pc2
       }
@@ -91,7 +66,7 @@ server = function(input, output, session) {
     })
 
     #Selecting which PC is PC1
-      selected_las <- reactive({
+    selected_las <- reactive({
       req(input$selected_obj)
       print(paste("Current selected_obj for PC 1: ", input$selected_obj))
       rv[[input$selected_obj]]
@@ -266,7 +241,6 @@ server = function(input, output, session) {
       selected_las()$save_mask(path)
     })
 
-
     observeEvent(input$save_pc_1, {
       out_dir <- normalizePath(rv$out_dir)
       path <- paste0(out_dir, "pc1.RData")
@@ -279,7 +253,9 @@ server = function(input, output, session) {
       selected_las2()$save_pc(path)
     })
 
-  #Plot Terminal
+## Plot buttons
+    
+   ## Plot Terminal
 
     output$console_output <- renderPrint({
       lapply(rv$console_output, print)  # Display all console output messages
@@ -287,35 +263,20 @@ server = function(input, output, session) {
 
   ## Plot Las
     observeEvent(input$plot_las, {
-            output$plot3D <- renderRglwidget({
-              lidR::plot(selected_las()$LPC)
-              rglwidget()
-            })
-          })
+      output$plot3D <- renderRglwidget({
+        lidR::plot(selected_las()$LPC)
+        rglwidget()
+      })
+    })
 
   ##Plot Results
 
-      observeEvent(input$plot_results, {
-        output$plot2D <- renderPlot({
-          req(rv$classified_diff)
-          plot_stats(rv$classified_diff)
-        })
+    observeEvent(input$plot_results, {
+      output$plot2D <- renderPlot({
+        req(rv$classified_diff)
+        plot_stats(rv$classified_diff)
       })
-
-   ## Plot Leaflet
-    # Define output$leafletmap outside of observeEvent
-      output$leafletmap <- renderLeaflet({
-        input$plot_leaf  # This line makes the renderLeaflet reactive to the button click
-        tryCatch({
-          req(rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
-          message("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format")
-          map <- displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
-          return(map)
-          message("Execution complete: Plot Leaflet.")
-        }, error = function(e) {
-          message("An error occurred: ", e$message)
-        })
-      })
+    })
 
 # itialized Leaflet
   observeEvent(rv$pc1, {

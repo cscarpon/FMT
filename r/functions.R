@@ -62,30 +62,28 @@ extract_info <- function(file_path) {
 
 
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
-process_raster <- function(source, target, source_mask, target_mask, crs = rv$crs, method = "bilinear") {
+process_raster <- function(source, target, source_mask, target_mask,  method = "bilinear") {
+  
   aligned <- FALSE
-  tryCatch({
-    aligned <- terra::compareGeom(source, target, stopiffalse = FALSE, tolerance = 0.1)
-  }, error = function(e) {
-    print(paste("compareGeom error:", e$message, ", reprocessing rasters"))
-    aligned <- FALSE
-  })
+  aligned <- terra::compareGeom(pc_14$CHM, pc_19$CHM)
+    
   if (!aligned) {
     # Assuming you have predefined masks for source and target
     
-    source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
+    # source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
 
     union <- sf::st_union(source_mask, target_mask)
     union <- terra::vect(union)
 
     # Crop the source to match the target raster's extent.
 
-    source <- transform_raster_crs(source, target, crs)
+    # source <- transform_raster_crs(source, target, crs)
     source <- terra::crop(source, terra::ext(union))
     target <- terra::crop(target, terra::ext(union))
 
     source <- terra::resample(source, target, method = method)
   }
+  
   # Apply masks to each of the raster layers which will be used for the difference.
   source <- terra::mask(source, union)
   target <- terra::mask(target, union)
@@ -112,6 +110,7 @@ CHM_diff_classify <- function(earlier, later) {
     # Write the output
     return(diff_class)
 }
+
 #Calculate statistics for a raster and return a data frame to plot in ggplot2
 
 plot_stats <- function(difference_raster) {
@@ -145,6 +144,12 @@ plot_stats <- function(difference_raster) {
                       labels = class_labels, drop = FALSE) +
     theme_minimal() +
     scale_y_continuous(labels = comma)
+}
+
+# Show DF
+
+show_df <- function(df) {
+  print(df)
 }
 
 #Check to ensure SpatRaster is not empty - used for Leaflet testing
@@ -255,7 +260,7 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   }
 
   # Project chm_diff
-  diff <- if(!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
+  diff <- if (!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
   diff <- terra::clamp(diff, 1, 5)
   diff_round <- round(diff)
 
@@ -312,63 +317,7 @@ initial_map <- function(mask) {
   return(m)
 }
 
-extract_info <- function(file_path) {
-  # Normalize the file path
-  path_normal <- normalizePath(file_path, mustWork = FALSE)
-  
-  # Check if the path exists
-  if (!file.exists(path_normal)) {
-    stop("Path does not exist: ", path_normal)
-  }
-  
-  # Define the pattern for file extensions
-  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json)$"
-  
-  # List files matching the pattern
-  data_list <- list.files(path_normal, pattern = exts, full.names = TRUE)
-  
-  # Initialize an empty data frame
-  meta_df <- data.frame(
-    id = numeric(),
-    file_path = character(),
-    ext = character(),
-    size_mb = numeric(),
-    creation_date = as.POSIXct(character())
-  )
-  
-  # Loop over the files and extract information
-  for (i in seq_along(data_list)) {
-    
-    object_id <- i
-    
-    # Extract file path
-    current_file_path <- data_list[i]
-    
-    # Extract file extension
-    ext <- tools::file_ext(current_file_path)
-    
-    # Get file size
-    size <- format(round(file.info(current_file_path)$size / (1024^2),2), nsmall = 2)
-    
-    # Get last modification date
-    date <- file.info(current_file_path)$mtime
-    formatted_date <- format(date, "%Y-%m-%d")
-    
-    # Append the information to the data frame
-    meta_df <- rbind(meta_df, data.frame(id = object_id,
-                                         file_path = current_file_path,
-                                         ext = ext,
-                                         size_mb = size,
-                                         creation_date = formatted_date,
-                                         stringsAsFactors = FALSE))
-  }
-  meta_df <- meta_df %>%
-    dplyr::arrange(ext) %>%
-    dplyr::mutate(id = dplyr::row_number()) %>%
-    dplyr::select(id, dplyr::everything())
-  
-  return(meta_df)
-}
+
 
 extract_las_info <- function(las, slice_size = 1) {
   # Extract information
