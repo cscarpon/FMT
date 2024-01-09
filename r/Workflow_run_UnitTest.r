@@ -1,6 +1,6 @@
 source("fmt/global.R")
 source("r/functions.R")
-source("r/spatial_obj.R")
+source("r/spatial_container.R")
 source("r/meta_obj.R")
 
 density_output <- las_density(las, slice_size = 1)

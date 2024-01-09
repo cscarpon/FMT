@@ -13,25 +13,6 @@
                         union_mask = NULL,
                         classified_diff = NULL,
                         results = NULL)
-
-        
-    #Server logic to confirm the Resolution, CRS, and Output Directory inputs
-    observeEvent(input$confirm, {
-      mo_dir <- mo$new(input$in_dir)
-      rev$metadata <- mo_dir
-      res <- as.integer(input$resolution)
-      rv$resolution <- res
-      crs <- as.integer(input$crs)
-      rv$crs <- crs
-      rv$out_dir <- input$out_dir
-      
-      # Print out the values to the console for debugging
-      print(paste0("Metadata: ", rv$resolution))
-      print(paste0("Resolution: ", rv$metadata))
-      print(paste0("CRS: ", rv$crs))
-      print(paste0("Output directory: ", rv$out_dir))
-    })
-
     #Server logic to load PC1 from Directory
     observeEvent(input$file1, {
       inFile <- input$file1
@@ -60,10 +41,11 @@
         rv$pc2 <- pc2
       }
       # Update selected objects dropdown
-      updateSelectInput(session, "selected_obj", choices = c("pc1", "pc2", names(rv)))  # Added pc3 here
+      updateSelectInput(session, "selected_obj", choices = c("pc1", "pc2", names(rv)))  
       updateSelectInput(session, "selected_obj2", choices = c("pc1", "pc2", names(rv)))  
       print(paste("Updated selected_obj choices: ", toString(names(rv))))
     })
+    
 
     #Selecting which PC is PC1
     selected_las <- reactive({
@@ -278,7 +260,7 @@
       })
     })
 
-# itialized Leaflet
+# initialized Leaflet
   observeEvent(rv$pc1, {
       if(!is.null(rv$pc1$mask)) {
       print(paste("The mask for PC 1 is plotted"))
