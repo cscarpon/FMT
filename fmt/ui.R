@@ -4,7 +4,7 @@ fluidPage(
     titlePanel("Forest Monitoring Tool (FMT)"),
     sidebarLayout(
       sidebarPanel(
-        textInput("in_dir", "Input directory:", value = paste0(getwd())),
+        textInput("in_dir", "Input directory:", value = paste0(getwd(),"/data/"),
         numericInput("resolution", "Resolution:", value = 1),
         numericInput("crs", "CRS:", value = 4326),
         textInput("out_dir", "Output directory:", value = paste0(getwd(),"/data/" )),
