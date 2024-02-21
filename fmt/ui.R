@@ -55,4 +55,5 @@ fluidPage(
         verbatimTextOutput("console_output")
       )
     )
+ )
 )
