@@ -1,5 +1,8 @@
 # Source the required scripts from local directory
 
+# setwd("C:/Users/cscar/FMT")
+# renv::activate()
+
 source("fmt/global.R")
 source("fmt/server.R")
 source("r/functions.R")
