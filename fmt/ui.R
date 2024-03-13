@@ -4,7 +4,7 @@ fluidPage(
     titlePanel("Forest Monitoring Tool (FMT)"),
     sidebarLayout(
       sidebarPanel(
-        textInput("in_dir", "Input directory:", value = paste0(getwd(),"/data/"),
+        textInput("in_dir", "Input directory:", value = paste0(getwd(),"/data/")),
         numericInput("resolution", "Resolution:", value = 1),
         numericInput("crs", "CRS:", value = 4326),
         textInput("out_dir", "Output directory:", value = paste0(getwd(),"/data/" )),
@@ -48,12 +48,11 @@ fluidPage(
           ),
           tags$head(tags$style(HTML("
                               #console_output {
-                                height: 300px;
+                                height: 500px;
                                 overflow-y: auto;
                               }
                             "))),
         verbatimTextOutput("console_output")
       )
     )
- )
-)
+  )

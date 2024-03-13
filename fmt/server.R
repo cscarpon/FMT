@@ -13,6 +13,7 @@
                         union_mask = NULL,
                         classified_diff = NULL,
                         results = NULL)
+    
     #Server logic to load PC1 from Directory
     observeEvent(input$file1, {
       inFile <- input$file1
@@ -25,9 +26,9 @@
       }
         
       # Update selected objects dropdown
-      updateSelectInput(session, "selected_obj", choices = c("pc1", names(rv)))
-      updateSelectInput(session, "selected_obj2", choices = c("pc2", names(rv)))
-      print(paste("Updated selected_obj choices: ", toString(names(rv))))
+      updateSelectInput(session, "selected_obj", choices = c("pc1", names(rv$pc1)))
+      updateSelectInput(session, "selected_obj2", choices = c("pc2", names(rv$pc2)))
+      print(paste("Updated selected_obj choices: ", toString(names(rv$pc1))))
     })
 
     #Server logic to load PC2 from Directory
@@ -59,13 +60,6 @@
       req(input$selected_obj2)
       print(paste("Current selected_obj for PC 2: ", input$selected_obj2))
       rv[[input$selected_obj2]]
-    })
-
-    #Saving the xyz from the PCC
-    observeEvent(input$xyz, {
-      print(paste("Executing task: Convert to XYZ for", input$selected_las))
-      selected_las()$to_xyz()
-      print(paste("Finished executing task: Convert to XYZ for", input$selected_las))
     })
 
     #Building the DTM for the first PC with Text Prompts
@@ -191,50 +185,6 @@
       })
     })
 
-## Save Buttons
-
-    observeEvent(input$save_las, {
-      filepath <- selected_las()$filepath
-      filename <- basename(filepath)
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", filename, ".laz")
-      selected_las()$save_las(path)
-    })
-
-    observeEvent(input$save_dtm, {
-      filepath <- selected_las()$filepath
-      filename <- basename(filepath)
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", filename, "_DTM.tif")
-      selected_las()$save_dtm(path)
-    })
-
-    observeEvent(input$save_chm, {
-      filepath <- selected_las()$filepath
-      filename <- basename(filepath)
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", filename, "_CHM.tif")
-      selected_las()$save_chm(path)
-    })
-
-    observeEvent(input$save_mask, {
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", selected_las(), "_mask.shp")
-      selected_las()$save_mask(path)
-    })
-
-    observeEvent(input$save_pc_1, {
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "pc1.RData")
-      selected_las()$save_pc(path)
-    })
-
-    observeEvent(input$save_pc_1, {
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "pc1.RData")
-      selected_las2()$save_pc(path)
-    })
-
 ## Plot buttons
     
    ## Plot Terminal
@@ -269,5 +219,57 @@
       })
     }
   }, ignoreInit = TRUE, ignoreNULL = TRUE)
-}
 
+
+ ## Save Buttons
+ 
+ #Saving the xyz from the PCC
+ 
+ observeEvent(input$xyz, {
+   print(paste("Executing task: Convert to XYZ for", input$selected_las))
+   selected_las()$to_xyz()
+   print(paste("Finished executing task: Convert to XYZ for", input$selected_las))
+ })
+ 
+ observeEvent(input$save_las, {
+   filepath <- selected_las()$filepath
+   filename <- basename(filepath)
+   out_dir <- normalizePath(rv$out_dir)
+   path <- paste0(out_dir, "/", filename, ".laz")
+   selected_las()$save_las(path)
+ })
+ 
+ observeEvent(input$save_dtm, {
+   filepath <- selected_las()$filepath
+   filename <- basename(filepath)
+   out_dir <- normalizePath(rv$out_dir)
+   path <- paste0(out_dir, "/", filename, "_DTM.tif")
+   selected_las()$save_dtm(path)
+ })
+ 
+ observeEvent(input$save_chm, {
+   filepath <- selected_las()$filepath
+   filename <- basename(filepath)
+   out_dir <- normalizePath(rv$out_dir)
+   path <- paste0(out_dir, "/", filename, "_CHM.tif")
+   selected_las()$save_chm(path)
+ })
+ 
+ observeEvent(input$save_mask, {
+   out_dir <- normalizePath(rv$out_dir)
+   path <- paste0(out_dir, "/", selected_las(), "_mask.shp")
+   selected_las()$save_mask(path)
+ })
+ 
+ observeEvent(input$save_pc_1, {
+   out_dir <- normalizePath(rv$out_dir)
+   path <- paste0(out_dir, "pc1.RData")
+   selected_las()$save_pc(path)
+ })
+ 
+ observeEvent(input$save_pc_1, {
+   out_dir <- normalizePath(rv$out_dir)
+   path <- paste0(out_dir, "pc1.RData")
+   selected_las2()$save_pc(path)
+ })
+}

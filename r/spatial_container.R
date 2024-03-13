@@ -11,11 +11,10 @@ spatial_container <- setRefClass(
     ),
     methods = list(
       initialize = function(file_path = character(0)) {
-        lidR::set_lidr_threads(6)
         .self$filepath <- file_path
         .self$filename <- basename(file_path)
         
-        #Determine the extentsion of the filepath
+        #Determine the extension of the filepath
         ext <- tools::file_ext(file_path)
         
         #create a dummy raster
@@ -140,6 +139,3 @@ spatial_container <- setRefClass(
       }
     )
 )
-
-# # Save the S4 object to a .RData file
-# save(my_s4, file = "my_s4.RData")
