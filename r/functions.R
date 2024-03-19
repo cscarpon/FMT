@@ -60,7 +60,6 @@ extract_info <- function(file_path) {
   return(meta_df)
 }
 
-
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
 process_raster <- function(source, target, source_mask, target_mask,  method = "bilinear") {
   
@@ -214,22 +213,26 @@ mask_pc <- function(pc) {
     # Extract the geometry from the sf object
     geom <- sf::st_geometry(coords)
 
-    # Define the raster extent
-    r <- raster::raster(extent(coords), resolution = 1) # Adjust resolution as needed
-
-    # Convert your sf object to SpatialPointsDataFrame
-    pts_sp <- as(coords, "Spatial")
-
+    # Create a terra SpatRaster with the same extent and resolution
+    ext <- terra::ext(sf::st_bbox(coords))
+    r <- terra::rast(ext, resolution = 1) # Adjust resolution as needed
+    
+    # Convert your sf object to SpatVector for terra
+    spatvect <- terra::vect(coords)
+    
     # Rasterize
-    r <- raster::rasterize(pts_sp, r)
-
-    out_shp <- raster::rasterToPoints(r, spatial = TRUE)
-
-    polygons_sf <- sf::st_as_sf(out_shp)
+    r <- terra::rasterize(spatvect, r, field = 1) # Assuming you want to burn value 1
+    
+    # Convert raster to points, similar to rasterToPoints
+    pts <- terra::as.points(r, values=TRUE)
+    
+    # Convert points to sf object
+    polygons_sf <- sf::st_as_sf(pts, coords = c("x", "y"), crs = lidR::projection(pc))
     poly_buff <- sf::st_buffer(polygons_sf, 25)
     poly_union <- sf::st_union(poly_buff)
     poly_union <- sf::st_buffer(poly_union, -24)
     sf::st_crs(poly_union) <- lidR::projection(pc)
+    
     return(poly_union)
 }
 
@@ -315,102 +318,4 @@ initial_map <- function(mask) {
     options = leaflet::layersControlOptions(collapsed = FALSE)
   )
   return(m)
-}
-
-
-
-extract_las_info <- function(las, slice_size = 1) {
-  # Extract information
-  extent <- las@header@PHB[24:28] # Extracting extent
-  area <- (las@header@PHB[["Number of point records"]] / 100)
-  epsg <- sf::st_crs(las)$epsg
-  min_z <- las@header@PHB[["Min Z"]]
-  max_z <- las@header@PHB[["Max Z"]]
-  # Combine extent into a single string
-  extent_str <- paste(extent[1], extent[2], extent[3], extent[4], sep = ", ")
-
-  # Calculate the density
-  # Creating the index to cut the data into slices
-  s <- seq(min_z, max_z, slice_size) # Number of layers
-
-  # Initial layout for density grid
-  layout <- grid_density(las, res = 4)
-  layout <- rast(nrows = nrow(layout),
-                 ncols = ncol(layout),
-                 extent = extent(layout))
-  
-  #Create a raster with all values set to 0
-  values(layout) <- 0
-
-  # Prepare to store densities
-  density_rasters <- vector("list", length(s))
-  for (i in seq_along(s)) {
-    subset <- filter_poi(las, Z >= s[i] & Z < (s[i] + slice_size))
-    if (!is.empty(subset))
-      density_rasters[[i]] <- grid_density(subset, res = layout)
-    else
-      density_rasters[[i]] <- layout
-  }
-
-  # Ensure all rasters have the same extent
-  for (i in seq_along(density_rasters)) {
-    density_rasters[[i]] <- extend(density_rasters[[i]], ext(layout))
-  }
-
-  # Convert list of rasters to a SpatRaster
-  density_rasters_full <- rast(density_rasters)
-  names(density_rasters_full) <- paste0("Layer ", s)
-
-  # Calculate the average density
-  avg_density <- mean(values(density_rasters_full), na.rm = TRUE)
-
-  # Creating a data frame
-  las_info_df <- data.frame(extent = extent_str,
-                            area_m = area,
-                            density_per_unit = avg_density,
-                            epsg = epsg,
-                            min_z = min_z,
-                            max_z = max_z,
-                            stringsAsFactors = FALSE)
-  return(las_info_df)
-
-}
-
-las_density <- function(las, slice_size = 1) {
-  # Determine Z range from LAS header
-  min_z <- las@header@PHB[["Min Z"]]
-  max_z <- las@header@PHB[["Max Z"]]
-  s <- seq(min_z, max_z, slice_size) # Number of layers
-
-  # Initial layout for density grid
-  layout <- grid_density(las, res = 4)
-  layout <- rast(nrows = nrow(layout), ncols = ncol(layout), extent = extent(layout))
-  values(layout) <- 0
-
-  # Prepare to store densities
-  density_rasters <- vector("list", length(s))
-  for (i in seq_along(s)) {
-    subset <- filter_poi(las, Z >= s[i] & Z < (s[i] + slice_size))
-    if (!is.empty(subset))
-      density_rasters[[i]] <- grid_density(subset, res = layout)
-    else
-      density_rasters[[i]] <- layout
-  }
-
-  # Ensure all rasters have the same extent
-  for (i in seq_along(density_rasters)) {
-    density_rasters[[i]] <- extend(density_rasters[[i]], ext(layout))
-  }
-
-  # Convert list of rasters to a SpatRaster
-  density_rasters_full <- rast(density_rasters)
-  names(density_rasters_full) <- paste0("Layer ", s)
-
-  # Calculate the average density
-  avg_density <- mean(values(density_rasters_full), na.rm = TRUE)
-
-  return(list(
-    average_density = avg_density,
-    density_per_unit = avg_density * prod(res(density_rasters_full))
-  ))
 }
