@@ -4,7 +4,9 @@ spatial_container <- setRefClass(
     xyz = "data.frame",
     LPC = "LAS",
     CHM = "SpatRaster",
+    CHM_raw = "SpatRaster",
     DTM = "SpatRaster",
+    DTM_raw = "SpatRaster",
     mask = "sfc",
     filepath =  "character",
     filename = "character"
@@ -98,9 +100,6 @@ spatial_container <- setRefClass(
           NumberOfReturns = .self$LPC@data$NumberOfReturns,
           Classification = .self$LPC@data$Classification)
       }
-      a
-      
-      
     },
     get_data = function() {
       return(.self$xyz)
@@ -113,16 +112,20 @@ spatial_container <- setRefClass(
     },
     to_dtm = function(resolution = 1) {
       dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
-      .self$DTM  <- dtm
+      .self$DTM_raw <- dtm
+      dtm_clip <- terra::mask(dtm, terra::vect(.self$mask))
+      .self$DTM  <- dtm_clip
     },
-    to_chm = function( resolution = 1) {
+    to_chm = function(resolution = 1) {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
       nlas <- lidR::normalize_height(.self$LPC, .self$DTM)
       chm <- lidR::rasterize_canopy(nlas, resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
-      .self$CHM <- clamp
+      .self$CHM_raw <- clamp
+      chm_clip <- terra::mask(clamp, terra::vect(.self$mask))
+      .self$CHM <- chm_clip
     },
     save_mask = function(path) {
       sf::st_write(.self$mask, path)

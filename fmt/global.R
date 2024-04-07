@@ -1,5 +1,6 @@
 # Load libraries
 library(shiny) # builds the apps 
+library(dplyr) # data manipulation
 library(rgl) # used for colour gradients
 library(terra) # used for raster processing
 library(lidR) # used for lidar processing

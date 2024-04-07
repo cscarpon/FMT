@@ -18,6 +18,7 @@ extract_info <- function(file_path) {
   meta_df <- data.frame(
     id = numeric(),
     file_path = character(),
+    file_name = character(),
     size_mb = numeric(),
     ext = character(),
     creation_date = as.POSIXct(character())
@@ -33,6 +34,10 @@ extract_info <- function(file_path) {
     
     current_file_path <- normalizePath(current_file_path, mustWork = FALSE)
     
+    # Create file name
+    
+    base_name <- basename(current_file_path)
+    
     
     # Extract file extension
     ext <- tools::file_ext(current_file_path)
@@ -47,6 +52,7 @@ extract_info <- function(file_path) {
     # Append the information to the data frame
     meta_df <- rbind(meta_df, data.frame(id = object_id,
                                          file_path = current_file_path,
+                                         file_name = base_name,
                                          size_mb = size,
                                          ext = ext,
                                          creation_date = formatted_date,
@@ -64,7 +70,7 @@ extract_info <- function(file_path) {
 process_raster <- function(source, target, source_mask, target_mask,  method = "bilinear") {
   
   aligned <- FALSE
-  aligned <- terra::compareGeom(pc_14$CHM, pc_19$CHM)
+  aligned <- terra::compareGeom(source, target, stopOnError = FALSE)
     
   if (!aligned) {
     # Assuming you have predefined masks for source and target
@@ -267,10 +273,7 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   diff <- terra::clamp(diff, 1, 5)
   diff_round <- round(diff)
 
-  m <- leaflet::addPolygons(m, data = mask, color = "red", group = "Mask")
-  if (!is_empty(dtm)) {
-    m <- leaflet::addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
-  }
+  
 
   if (!is_empty(chm)) {
     m <- leaflet::addRasterImage(m, chm_m, group = "CHM", maxBytes = Inf)
@@ -295,22 +298,27 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
                             position = "bottomright",
                             title = "Change in Tree Height (m)")
   }
+  
+  m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "red", fill = FALSE, group = "Mask")
+  if (!is_empty(dtm)) {
+    m <- leaflet::addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
+  }
 
   m <- leaflet::addLayersControl(m,
-                                 overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
+                                 overlayGroups = c( "DTM", "CHM", "Diff","Mask"),
                                  options = leaflet::layersControlOptions(collapsed = FALSE))
 
   return(m)
 }
 
 initial_map <- function(mask) {
-  mask <- if (!is_empty_sfc(mask)) sf::st_transform(mask, 4326) else NULL
+  mask <- if (!is_empty_sfc(mask)) terra::project(mask, "EPSG:4326") else NULL
 
   m <- leaflet::leaflet() %>%
     leaflet::addTiles()
 
   if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-    m <- leaflet::addPolygons(m, data = mask, color = "red", group = "Mask")
+    m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "red", fill = FALSE,  group = "Mask")
   }
   m <- leaflet::addLayersControl(
     m,

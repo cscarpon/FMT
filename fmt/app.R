@@ -1,7 +1,4 @@
-# Source the required scripts from local directory
-
-# setwd("C:/Users/cscar/FMT")
-# renv::activate()
+# Run this script to start the FMT
 
 source("fmt/global.R")
 source("fmt/server.R")
