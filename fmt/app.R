@@ -1,9 +1,10 @@
-# Source the required scripts from local directory
+# Run this script to start the FMT
 
 source("fmt/global.R")
-source("r/functions.R")
 source("fmt/server.R")
-source("r/pc_obj.R")
+source("r/functions.R")
+source("r/spatial_container.R")
+source("r/meta_obj.R")
 
 # Define the UI and server
 ui <- source("fmt/ui.R", local = TRUE)$value
