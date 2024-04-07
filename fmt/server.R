@@ -1,118 +1,106 @@
-server = function(input, output, session) {
+ server = function(input, output, session) {
 
-      # autoInvalidate <- reactiveTimer(10000)
-      # observe({
-      #   autoInvalidate()
-      #   cat(".")
-      # })
-      ## Selection and parameters
-  
-      # Create a reactiveValues object to store the LAS files
-      ## Selection and parameters
+    # Create a reactiveValues object to store the LAS files
+    ## Selection and parameters
     rv <- reactiveValues(console_output = list(),
-                         pc1 = NULL,
-                         pc2 = NULL,
-                         crs = NULL,
-                         resolution = NULL,
-                         out_dir = NULL,
-                         union_mask = NULL,
-                         classified_diff = NULL,
-                         results = NULL)
-
-    #Server logic to accept the Resolution, CRS, and Output Directory
-    observeEvent(input$anotherEvent, {
-      # Make sure the values are set before using them
-      req(rv$resolution, rv$crs, rv$out_dir)
-      # Use rv$resolution, rv$crs, rv$out_dir here
-    })
-
-    #Server logic to confirm the Resolution, CRS, and Output Directory inputs
+                        in_dir = NULL,
+                        out_dir = NULL,
+                        metadata = NULL,
+                        sc1 = NULL,
+                        sc2 = NULL,
+                        crs = NULL,
+                        resolution = NULL,
+                        source_chm = NULL,
+                        target_chm = NULL,
+                        union_mask = NULL,
+                        classified_diff = NULL,
+                        results = NULL)
+    
+    #Server logic to accept the directories and plot the metadata
+    
     observeEvent(input$confirm, {
-      res <- as.integer(input$resolution)
-      rv$resolution <- res
-      crs <- as.integer(input$crs)
-      rv$crs <- crs
-      rv$out_dir <- input$out_dir
-      # Print out the values to the console for debugging
-      print(paste0("Resolution: ", rv$resolution))
-      print(paste0("CRS: ", rv$crs))
-      print(paste0("Output directory: ", rv$out_dir))
-    })
-
-
-    #Server logic to load PC1 from Directory
-      observeEvent(input$file1, {
-      inFile <- input$file1
-      if (is.null(inFile)) {
-          return(NULL)
-      } else if (tools::file_ext(inFile$datapath) == "rdata") {
-        load(inFile$datapath)
-        rv$pc1 <- pc_obj
-      } else {
-        pc1 <- pc_obj$new(inFile$datapath)
-        pc1$set_crs(rv$crs)
-        rv$pc1 <- pc1
-      }
+        # Update the reactive values for in_dir, out_dir, resolution, and crs
         
-      # Update selected objects dropdown
-      updateSelectInput(session, "selected_obj", choices = c("pc1", names(rv)))
-      updateSelectInput(session, "selected_obj2", choices = c("pc2", names(rv)))
-      print(paste("Updated selected_obj choices: ", toString(names(rv))))
-    })
+        # input dir
+        in_input <- input$in_dir
+        rv$in_dir <- as.character(in_input)
+        
+        #output dir
+        out_input <- input$out_dir
+        rv$out_dir <- as.character(out_input)
+        
+        #raster resolution
+        res <- as.integer(input$resolution)
+        rv$resolution <- res
+        
+        # spatial object crs
+        crs <- as.integer(input$crs)
+        rv$crs <- crs
+        
+        req(rv$in_dir)  # Make sure the input directory is set
 
-    #Server logic to load PC2 from Directory
-    observeEvent(input$file2, {
-      inFile <- input$file2
-      if (is.null(inFile)) {
-          return(NULL)
-      } else if (tools::file_ext(inFile$datapath) == "rdata") {
-        load(inFile$datapath)
-        rv$pc2 <- pc2
-      } else {
-        pc2 <- pc_obj$new(inFile$datapath)
-        pc2$set_crs(rv$crs)
-        rv$pc2 <- pc2
+        mo_dir <- mo$new(rv$in_dir)
+        rv$metadata <- mo_dir$metadata
+        
+        #plot the metadata
+        
+        output$plotmeta <- renderTable({
+          req(rv$metadata)
+          rv$metadata
+        })
+      })
+    
+    ##Server logic to load source PC from Directory
+    observeEvent(input$confirm, {
+      req(rv$metadata)  # Ensure metadata is loaded
+      
+      # Filter for .laz files
+      laz_paths <- rv$metadata %>%
+        dplyr::filter(grepl("\\.laz$", file_path)) %>%
+        dplyr::pull(file_path)
+      
+      # Update the dropdown for selecting the source point cloud
+      updateSelectInput(session, "selected_source", choices = laz_paths)
+      updateSelectInput(session, "selected_target", choices = laz_paths)
+    })
+    
+    observeEvent(input$PC_confirm, {
+      # Ensure the selections are made
+      req(input$selected_source, input$selected_target)
+      
+      # Retrieve the file paths from the selections
+      las_path1 <- input$selected_source
+      las_path2 <- input$selected_target
+      
+      # Process the source point cloud
+      if (!is.null(las_path1)) {
+        sc1 <- spatial_container$new(as.character(las_path1))
+        sc1$set_crs(rv$crs)
+        rv$sc1 <- sc1  
       }
-      # Update selected objects dropdown
-      updateSelectInput(session, "selected_obj", choices = c("pc1", "pc2", names(rv)))  # Added pc3 here
-      updateSelectInput(session, "selected_obj2", choices = c("pc1", "pc2", names(rv)))  
-      print(paste("Updated selected_obj choices: ", toString(names(rv))))
-    })
+      
+      # Process the target point cloud
+      if (!is.null(las_path2)) {
+        sc2 <- spatial_container$new(as.character(las_path2))
+        sc2$set_crs(rv$crs)
+        rv$sc2 <- sc2  
+      }
+    
+      updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
 
-    #Selecting which PC is PC1
-      selected_las <- reactive({
-      req(input$selected_obj)
-      print(paste("Current selected_obj for PC 1: ", input$selected_obj))
-      rv[[input$selected_obj]]
-    })
-
-    #Selecting which PC is PC2
-    selected_las2 <- reactive({ 
-      req(input$selected_obj2)
-      print(paste("Current selected_obj for PC 2: ", input$selected_obj2))
-      rv[[input$selected_obj2]]
-    })
-
-    #Saving the xyz from the PCC
-    observeEvent(input$xyz, {
-      print(paste("Executing task: Convert to XYZ for", input$selected_las))
-      selected_las()$to_xyz()
-      print(paste("Finished executing task: Convert to XYZ for", input$selected_las))
     })
 
     #Building the DTM for the first PC with Text Prompts
     observeEvent(input$dtm1, {
-      req(rv, selected_las())
-
+      
+      req(rv$sc1, rv$resolution)
       tryCatch({
-          new_message <- paste0("Executing task: Generate DTM1 for ", selected_las()$filename)
-          rv$console_output <- c(rv$console_output, list(new_message))
-
+  
           #Calling the DTM Function
-          dtm <- selected_las()$to_dtm(rv$resolution)
-          rv$pc1$DTM <- dtm
+          rv$sc1$to_dtm(rv$resolution)
+          
           #Printing the DTM statistics
-          object_message <- print(selected_las()$DTM)
+          object_message <- print(rv$sc1$DTM)
           rv$console_output <- c(rv$console_output, list(object_message))
         }, error = function(e){
           new_message <- paste("Error in creating DTM:", e$message)
@@ -123,32 +111,36 @@ server = function(input, output, session) {
     observeEvent(input$dtm2, {
 
       #Ensuring that the resolution and the PC are selected
-      req(rv, selected_las2())
+      req(rv$sc2, rv$resolution)
 
       #Pushing the text prompt for DTM2 to the console
       tryCatch({
-        new_message <- paste0("Executing task: Generate DTM2 for ", selected_las2()$filename)
-        rv$console_output <- c(rv$console_output, list(new_message))
-        dtm <- selected_las2()$to_dtm(rv$resolution)
-        rv$pc2$DTM <- dtm
-
+        
+        #Calling the DTM Function
+        rv$sc2$to_dtm(rv$resolution)
+        
         #Printing the DTM statistics
-        object_message <- print(selected_las2()$DTM)
+        object_message <- print(rv$sc2$DTM)
         rv$console_output <- c(rv$console_output, list(object_message))
-        }, error = function(e){
-          new_message <- paste("Error in creating DTM:", e$message)
-          rv$console_output <- c(rv$console_output, list(new_message))
+      }, error = function(e){
+        new_message <- paste("Error in creating DTM:", e$message)
+        rv$console_output <- c(rv$console_output, list(new_message))
       })
     })
 
     observeEvent(input$chm1, {
-        tryCatch({
-        new_message <- paste0("Executing task: Generate CHM1 for ", selected_las()$filename)
+        
+        req(rv$sc1, rv$resolution)
+      
+        new_message <- paste0("Generating CHM for Source")
         rv$console_output <- c(rv$console_output, list(new_message))
-        chm1 <- rv$pc1$to_chm(resolution = rv$resolution)
-        rv$pc1$CHM <- chm1
+      
+      
+        tryCatch({
+        
+        rv$sc1$to_chm(resolution = rv$resolution)
 
-        object_message <- print(selected_las()$CHM)
+        object_message <- print(rv$sc1$CHM)
         rv$console_output <- c(rv$console_output, list(object_message))
         }, error = function(e){
           new_message <- paste("Error in creating CHM:", e$message)
@@ -157,13 +149,17 @@ server = function(input, output, session) {
     })
 
     observeEvent(input$chm2, {
+    
+      req(rv$sc2, rv$resolution)
+      new_message <- paste0("Generating CHM for Target")
+      rv$console_output <- c(rv$console_output, list(new_message))
+    
+      
       tryCatch({
-        new_message <- paste0("Executing task: Generate CHM2 for ", selected_las2()$filename)
-        rv$console_output <- c(rv$console_output, list(new_message))
-        chm2 <- rv$pc2$to_chm(resolution = rv$resolution)
-        rv$pc2$CHM <- chm2
+        
+        rv$sc2$to_chm(resolution = rv$resolution)
 
-        object_message <- print(selected_las2()$CHM)
+        object_message <- print(rv$sc2$CHM)
         rv$console_output <- c(rv$console_output, list(object_message))
         }, error = function(e) {
           new_message <- paste("Error in creating CHM2:", e$message)
@@ -172,21 +168,16 @@ server = function(input, output, session) {
     })
 
     observeEvent(input$align_chms, {
-      req(selected_las()$CHM, selected_las2()$CHM, selected_las()$mask, rv)
+      req(rv$sc1, rv$sc2)
       new_message <- "Running Raster Alignment"
       rv$console_output <- c(rv$console_output, list(new_message))
       
       tryCatch({
-        processed_chm <- process_raster(rv$pc1$CHM, rv$pc2$CHM, rv$pc1$mask, rv$pc2$mask, crs = rv$crs, method = "bilinear")
-        print("Processed CHM 1:")
-        print(processed_chm[[1]])
-
-        print("Processed CHM 2:")
-        print(processed_chm[[2]])
-
-        rv$pc1$CHM <- processed_chm[[1]]
-        rv$pc2$CHM <- processed_chm[[2]]
-        rv$union_mask <- processed_chm[[3]]
+        aligned_chm <- process_raster(rv$sc1$CHM_raw, rv$sc2$CHM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
+        
+        rv$source_chm <- aligned_chm[[1]]
+        rv$target_chm <- aligned_chm[[2]]
+        rv$union_mask <- aligned_chm[[3]]
 
         
         new_message <- "Raster Alignment Complete"
@@ -201,14 +192,14 @@ server = function(input, output, session) {
     #Button logic to classify the difference between the two CHMs
     
     observeEvent(input$classify_chm, {
-      # Ensure the DTMs exist and have been processed for each pc_obj
-      req(rv$pc1$CHM, rv$pc2$CHM, rv)
+      # Ensure the DTMs exist and have been processed for each spatial_obj
+      req(rv$source_chm, rv$target_chm, rv$union_mask)
       new_message <- "Running Classification"
       rv$console_output <- c(rv$console_output, list(new_message))
 
       tryCatch({
         
-        classified_diff <- CHM_diff_classify(rv$pc1$CHM, rv$pc2$CHM)
+        classified_diff <- CHM_diff_classify(rv$source_chm, rv$target_chm)
         diff_class <- terra::mask(classified_diff, rv$union_mask)
 
         # Save the processed raster in the rv list so it can be accessed elsewhere
@@ -222,98 +213,126 @@ server = function(input, output, session) {
         rv$console_output <- c(rv$console_output, list(new_message))
       })
     })
-
-## Save Buttons
-
-    observeEvent(input$save_las, {
-      filepath <- selected_las()$filepath
-      filename <- basename(filepath)
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", filename, ".laz")
-      selected_las()$save_las(path)
-    })
-
-    observeEvent(input$save_dtm, {
-      filepath <- selected_las()$filepath
-      filename <- basename(filepath)
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", filename, "_DTM.tif")
-      selected_las()$save_dtm(path)
-    })
-
-    observeEvent(input$save_chm, {
-      filepath <- selected_las()$filepath
-      filename <- basename(filepath)
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", filename, "_CHM.tif")
-      selected_las()$save_chm(path)
-    })
-
-    observeEvent(input$save_mask, {
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "/", selected_las(), "_mask.shp")
-      selected_las()$save_mask(path)
-    })
-
-
-    observeEvent(input$save_pc_1, {
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "pc1.RData")
-      selected_las()$save_pc(path)
-    })
-
-    observeEvent(input$save_pc_1, {
-      out_dir <- normalizePath(rv$out_dir)
-      path <- paste0(out_dir, "pc1.RData")
-      selected_las2()$save_pc(path)
-    })
-
-  #Plot Terminal
+    
+   ## Plot Terminal
 
     output$console_output <- renderPrint({
       lapply(rv$console_output, print)  # Display all console output messages
     })
-
-  ## Plot Las
-    observeEvent(input$plot_las, {
-            output$plot3D <- renderRglwidget({
-              lidR::plot(selected_las()$LPC)
-              rglwidget()
-            })
-          })
+    
+  ## Plot Source LAS
+    observeEvent(input$plot_source, {
+      output$plot3D <- rgl::renderRglwidget({
+        req(rv$sc1$LPC)
+        lidR::plot(rv$sc1$LPC)
+        rglwidget()
+      })
+    })
+    
+    ## Plot Target LAS
+    
+    observeEvent(input$plot_target, {
+      output$plot3D <- rgl::renderRglwidget({
+        req(rv$sc2$LPC)
+        lidR::plot(rv$sc2$LPC)
+        rglwidget()
+      })
+    })
 
   ##Plot Results
 
-      observeEvent(input$plot_results, {
-        output$plot2D <- renderPlot({
-          req(rv$classified_diff)
-          plot_stats(rv$classified_diff)
-        })
+    observeEvent(input$plot_results, {
+      output$plot2D <- renderPlot({
+        req(rv$classified_diff)
+        plot_stats(rv$classified_diff)
       })
-
-   ## Plot Leaflet
-    # Define output$leafletmap outside of observeEvent
+    })
+    
+    ##Plot Webmap
+    
+    observeEvent(input$plot_leaf, {
       output$leafletmap <- renderLeaflet({
-        input$plot_leaf  # This line makes the renderLeaflet reactive to the button click
-        tryCatch({
-          req(rv$pc1$DTM, rv$pc1$CHM, rv$classified_diff, rv$union_mask)
-          message("Executing task: Plot Leaflet. Please wait as the rasters are converted to its web format")
-          map <- displayMap(dtm = rv$pc1$DTM, chm = rv$pc1$CHM, chm_diff = rv$classified_diff, mask = rv$union_mask)
-          return(map)
-          message("Execution complete: Plot Leaflet.")
-        }, error = function(e) {
-          message("An error occurred: ", e$message)
-        })
+        req(rv$sc1)
+        displayMap(rv$sc1$DTM, rv$source_chm,rv$classified_diff, rv$union_mask)
       })
+    })
 
+ ## Save Buttons
+ 
+    
+  # Selecting which SC to save
+  selected_las <- reactive({
+    req(input$io_obj)
+    rv[[input$io_obj]]
+  })
+    
+ #Saving the xyz from the PCC
 
-# itialized Leaflet
-  observeEvent(rv$pc1, {
-      if(!is.null(rv$pc1$mask)) {
-      print(paste("The mask for PC 1 is plotted"))
-      output$leafletmap <- renderLeaflet({
-        initial_map(rv$pc1$mask)
-      })
+ 
+  observeEvent(input$save_las, {
+    req(selected_las())  
+    las <- selected_las()  
+    
+    if (!is.null(las$filepath)) {
+      filepath <- las$filepath
+      filename <- basename(filepath)
+      filesplit <- strsplit(filename, "\\.")[[1]]
+      final_name <- filesplit[1]
+      out_dir <- normalizePath(rv$out_dir)
+      path <- paste0(out_dir, "/", final_name, ".laz")
+      las$save_las(path)
+      print(paste("LAS file saved to:", path))
+    } else {
+      print("No file path found for saving LAS.")
     }
-  }, ignoreInit = TRUE, ignoreNULL = TRUE)
+  })
+ 
+  observeEvent(input$save_dtm, {
+    
+    # Ensure selected_las() is not NULL
+    req(selected_las())  
+    
+    filepath <- selected_las()$filepath
+    filename <- basename(filepath)
+    filesplit <- strsplit(filename, "\\.")[[1]]
+    final_name <- filesplit[1]
+    out_dir <- normalizePath(rv$out_dir)
+    path <- paste0(out_dir, "/", final_name, "_DTM.tif")
+    
+    selected_las()$save_dtm(path)
+    print(paste("DTM file saved to:", path))
+  })
+ 
+  observeEvent(input$save_chm, {
+    
+    # Ensure selected_las() is not NULL
+    req(selected_las())  
+    
+    filepath <- selected_las()$filepath
+    filename <- basename(filepath)
+    filesplit <- strsplit(filename, "\\.")[[1]]
+    final_name <- filesplit[1]
+    out_dir <- normalizePath(rv$out_dir)
+    path <- paste0(out_dir, "/", final_name, "_CHM.tif")
+    
+    selected_las()$save_chm(path)
+    print(paste("CHM file saved to:", path))
+  })
+ 
+  observeEvent(input$save_mask, {
+    
+    # Ensure selected_las() is not NULL
+    
+    req(selected_las())  
+    
+    filepath <- selected_las()$filepath
+    filename <- basename(filepath)
+    filesplit <- strsplit(filename, "\\.")[[1]]
+    final_name <- filesplit[1]
+    out_dir <- normalizePath(rv$out_dir)
+    
+    path <- paste0(out_dir, "/", final_name, "_mask.shp")
+    selected_las()$save_mask(path)
+    print(paste("Mask saved to:", path))
+  })
 }

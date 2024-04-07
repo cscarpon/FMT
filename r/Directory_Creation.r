@@ -1,4 +1,4 @@
-Directory_Creation 
+#Directory_Creation 
 
 dir.create("app")
 dir.create("r")
@@ -7,7 +7,7 @@ dir.create("data")
 dir.create("tests")
 dir.create("www")
 
-file.create(c("app/server.R", "app/ui.R", "app/global.R", "app/app.R"
+file.create(c("app/server.R", "app/ui.R", "app/global.R", "app/app.R",
               "r/functions.R", 
               "py/icp_alignment.py",
               "Dockerfile",
