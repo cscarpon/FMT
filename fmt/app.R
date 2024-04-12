@@ -1,14 +1,14 @@
 # Run this script to start the FMT
 
-source("fmt/global.R")
-source("fmt/server.R")
-source("r/functions.R")
-source("r/spatial_container.R")
-source("r/meta_obj.R")
+source("global.R")
+source("server.R")
+source("functions.R")
+source("spatial_container.R")
+source("meta_obj.R")
 
 # Define the UI and server
-ui <- source("fmt/ui.R", local = TRUE)$value
-server <- source("fmt/server.R", local = TRUE)$value
+ui <- source("ui.R", local = TRUE)$value
+server <- source("server.R", local = TRUE)$value
 
 # Run the app
 shinyApp(ui = ui, server = server)

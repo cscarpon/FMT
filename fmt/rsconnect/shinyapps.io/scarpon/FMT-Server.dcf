@@ -1,0 +1,10 @@
+name: FMT-Server
+title:
+username: scarpon
+account: scarpon
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11691270
+bundleId: 8465317
+url: https://scarpon.shinyapps.io/FMT-Server/
+version: 1

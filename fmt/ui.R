@@ -38,6 +38,7 @@ fluidPage(
           actionButton("plot_leaf", "Plot to Leaflet", title = "Plot the current objects to a leaflet map"),
           actionButton("plot_results", "Plot Results", title = "Plot the difference results")
         ) 
+        
       ),
       mainPanel(
         tabsetPanel(
