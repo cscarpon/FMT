@@ -19,6 +19,5 @@ def align(source, target):
 def apply_transformation(source, transformation_matrix):
     self.pcd.transform(transformation_matrix)
 
-
 def save(self, filename):
     o3d.io.write_point_cloud(filename, self.pcd)

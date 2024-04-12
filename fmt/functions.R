@@ -1,28 +1,94 @@
+#Extract information from a file path to determine what shapefiles you have
+extract_info <- function(file_path) {
+  # Normalize the file path
+  path_normal <- normalizePath(file_path, mustWork = FALSE)
+  
+  # Check if the path exists
+  if (!file.exists(path_normal)) {
+    stop("Path does not exist: ", path_normal)
+  }
+  
+  # Define the pattern for file extensions
+  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json)$"
+  
+  # List files matching the pattern
+  data_list <- list.files(path_normal, pattern = exts, full.names = TRUE)
+  
+  # Initialize an empty data frame
+  meta_df <- data.frame(
+    id = numeric(),
+    file_path = character(),
+    file_name = character(),
+    size_mb = numeric(),
+    ext = character(),
+    creation_date = as.POSIXct(character())
+  )
+  
+  # Loop over the files and extract information
+  for (i in seq_along(data_list)) {
+    
+    object_id <- i
+    
+    # Extract file path
+    current_file_path <- data_list[i]
+    
+    current_file_path <- normalizePath(current_file_path, mustWork = FALSE)
+    
+    # Create file name
+    
+    base_name <- basename(current_file_path)
+    
+    
+    # Extract file extension
+    ext <- tools::file_ext(current_file_path)
+    
+    # Get file size
+    size <- format(round(file.info(current_file_path)$size / (1024^2),2), nsmall = 2)
+    
+    # Get last modification date
+    date <- file.info(current_file_path)$mtime
+    formatted_date <- format(date, "%Y-%m-%d")
+    
+    # Append the information to the data frame
+    meta_df <- rbind(meta_df, data.frame(id = object_id,
+                                         file_path = current_file_path,
+                                         file_name = base_name,
+                                         size_mb = size,
+                                         ext = ext,
+                                         creation_date = formatted_date,
+                                         stringsAsFactors = FALSE))
+  }
+  meta_df <- meta_df %>%
+    dplyr::arrange(ext) %>%
+    dplyr::mutate(id = dplyr::row_number()) %>%
+    dplyr::select(id, dplyr::everything())
+  
+  return(meta_df)
+}
+
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
-process_raster <- function(source, target, source_mask, target_mask, crs = rv$crs, method = "bilinear") {
+process_raster <- function(source, target, source_mask, target_mask,  method = "bilinear") {
+  
   aligned <- FALSE
-  tryCatch({
-    aligned <- terra::compareGeom(source, target, stopiffalse = FALSE, tolerance = 0.1)
-  }, error = function(e) {
-    print(paste("compareGeom error:", e$message, ", reprocessing rasters"))
-    aligned <- FALSE
-  })
+  aligned <- terra::compareGeom(source, target, stopOnError = FALSE)
+    
   if (!aligned) {
     # Assuming you have predefined masks for source and target
     
-    source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
+    # source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
 
     union <- sf::st_union(source_mask, target_mask)
     union <- terra::vect(union)
 
     # Crop the source to match the target raster's extent.
 
-    source <- transform_raster_crs(source, target, crs)
+    # source <- transform_raster_crs(source, target, crs)
     source <- terra::crop(source, terra::ext(union))
     target <- terra::crop(target, terra::ext(union))
 
     source <- terra::resample(source, target, method = method)
   }
+  
   # Apply masks to each of the raster layers which will be used for the difference.
   source <- terra::mask(source, union)
   target <- terra::mask(target, union)
@@ -49,6 +115,7 @@ CHM_diff_classify <- function(earlier, later) {
     # Write the output
     return(diff_class)
 }
+
 #Calculate statistics for a raster and return a data frame to plot in ggplot2
 
 plot_stats <- function(difference_raster) {
@@ -82,6 +149,12 @@ plot_stats <- function(difference_raster) {
                       labels = class_labels, drop = FALSE) +
     theme_minimal() +
     scale_y_continuous(labels = comma)
+}
+
+# Show DF
+
+show_df <- function(df) {
+  print(df)
 }
 
 #Check to ensure SpatRaster is not empty - used for Leaflet testing
@@ -146,26 +219,35 @@ mask_pc <- function(pc) {
     # Extract the geometry from the sf object
     geom <- sf::st_geometry(coords)
 
-    # Define the raster extent
-    r <- raster::raster(extent(coords), resolution = 1) # Adjust resolution as needed
-
-    # Convert your sf object to SpatialPointsDataFrame
-    pts_sp <- as(coords, "Spatial")
-
+    # Create a terra SpatRaster with the same extent and resolution
+    ext <- terra::ext(sf::st_bbox(coords))
+    r <- terra::rast(ext, resolution = 1) # Adjust resolution as needed
+    
+    # Convert your sf object to SpatVector for terra
+    spatvect <- terra::vect(coords)
+    
     # Rasterize
-    r <- raster::rasterize(pts_sp, r)
-
-    out_shp <- raster::rasterToPoints(r, spatial = TRUE)
-
-    polygons_sf <- sf::st_as_sf(out_shp)
+    r <- terra::rasterize(spatvect, r, field = 1) # Assuming you want to burn value 1
+    
+    # Convert raster to points, similar to rasterToPoints
+    pts <- terra::as.points(r, values=TRUE)
+    
+    # Convert points to sf object
+    polygons_sf <- sf::st_as_sf(pts, coords = c("x", "y"), crs = lidR::projection(pc))
     poly_buff <- sf::st_buffer(polygons_sf, 25)
     poly_union <- sf::st_union(poly_buff)
     poly_union <- sf::st_buffer(poly_union, -24)
     sf::st_crs(poly_union) <- lidR::projection(pc)
+    
     return(poly_union)
 }
 
 displayMap <- function(dtm, chm, chm_diff, mask) {
+
+  m <- leaflet::leaflet() %>%
+    leaflet::addTiles()
+
+  m
 
   # Transform chm_mask
   mask <- terra::project(mask, "EPSG:4326")
@@ -187,17 +269,11 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   }
 
   # Project chm_diff
-  diff <- if(!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
+  diff <- if (!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
   diff <- terra::clamp(diff, 1, 5)
   diff_round <- round(diff)
 
-  m <- leaflet::leaflet() %>%
-    leaflet::addTiles()
-
-  m <- leaflet::addPolygons(m, data = mask, color = "red", group = "Mask")
-  if (!is_empty(dtm)) {
-    m <- leaflet::addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
-  }
+  
 
   if (!is_empty(chm)) {
     m <- leaflet::addRasterImage(m, chm_m, group = "CHM", maxBytes = Inf)
@@ -222,22 +298,27 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
                             position = "bottomright",
                             title = "Change in Tree Height (m)")
   }
+  
+  m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "red", fill = FALSE, group = "Mask")
+  if (!is_empty(dtm)) {
+    m <- leaflet::addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
+  }
 
   m <- leaflet::addLayersControl(m,
-                                 overlayGroups = c("Mask", "DTM", "CHM", "Diff"),
+                                 overlayGroups = c( "DTM", "CHM", "Diff","Mask"),
                                  options = leaflet::layersControlOptions(collapsed = FALSE))
 
   return(m)
 }
 
 initial_map <- function(mask) {
-  mask <- if (!is_empty_sfc(mask)) sf::st_transform(mask, 4326) else NULL
+  mask <- if (!is_empty_sfc(mask)) terra::project(mask, "EPSG:4326") else NULL
 
   m <- leaflet::leaflet() %>%
     leaflet::addTiles()
 
   if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-    m <- leaflet::addPolygons(m, data = mask, color = "red", group = "Mask")
+    m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "red", fill = FALSE,  group = "Mask")
   }
   m <- leaflet::addLayersControl(
     m,

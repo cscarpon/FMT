@@ -25,7 +25,7 @@ These scripts will conenct the class, the functions and the global variables to 
 # Source the required scripts
 source("app/global.R")
 source("r/functions.R")
-source("r/pc_obj.R")
+source("r/spatial_obj.R")
 ```
 
 ## Class Structure of the Point Cloud Object
@@ -33,7 +33,7 @@ source("r/pc_obj.R")
  The Class structure for the point cloud object can hold 
  a df, las, CHM (SpatRaster), DTM (SpatRaster), mask (sfc), filepath (character), filename (character)
 
-  pc_obj <- setRefClass(
+  spatial_obj <- setRefClass(
    "point_cloud_obj",
     fields = list(
      data = "data.frame",
@@ -47,18 +47,18 @@ source("r/pc_obj.R")
 ## Reading the Class Methods
 
 
-The following function `pc_obj$methods()` shows the methods of th pc_obj class, which are inherited functions tof that object
+The following function `spatial_obj$methods()` shows the methods of th spatial_obj class, which are inherited functions tof that object
 
 ```{r, echo=FALSE}
-pc_obj$methods()
+spatial_obj$methods()
 ```
 
 ## Custom methods
 
-to call a method use `pc_obj$method_name()`
+to call a method use `spatial_obj$method_name()`
 
-initialize(pc_obj, or .rdata),  
-save_chm(pc_obj$CHM, filepath) saves the currently stored CHM to the filepath,
+initialize(spatial_obj, or .rdata),  
+save_chm(spatial_obj$CHM, filepath) saves the currently stored CHM to the filepath,
 save_dtm(.self$DTM, filepath)  saves the currently stored DTM to the filepath,
 save_las(path), saves the LAS object `(.self$LPC)` to your path, include `.las` in the name
 save_mask(path), saves the mask `(.self$mask)` to your path, include `.shp` in the name      
@@ -76,14 +76,14 @@ get_lpc(),  saves the current LPC to an external variable
 The object needs to be created and initialised before it can be used. It can read either a `.rdata`, `.laz`, `.las`, or `.xyz `file.
 On initialisation, an LPC object will be created regardless of the input format
 
-to initialise the object use `pc_obj$new(filepath)`
+to initialise the object use `spatial_obj$new(filepath)`
 
 ```{r, echo=FALSE} 
 path_14 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2014_decimate.laz"
-pc_14 <- pc_obj$new(path_14)
+pc_14 <- spatial_obj$new(path_14)
 
 path_19 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2019_decimate.laz"
-pc_19 <- pc_obj$new(path_19)
+pc_19 <- spatial_obj$new(path_19)
 ```
 
 ## Functions built with the class to help the processing of Point Cloud Data, Rasters, and Shapefiles
