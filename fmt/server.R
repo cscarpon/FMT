@@ -56,7 +56,7 @@
       
       # Filter for .laz files
       laz_paths <- rv$metadata %>%
-        dplyr::filter(grepl("\\.laz$", file_path)) %>%
+        dplyr::filter(grepl("\\.laz$ || \\.las$", file_path)) %>%
         dplyr::pull(file_path)
       
       # Update the dropdown for selecting the source point cloud
