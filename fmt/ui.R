@@ -42,15 +42,22 @@ fluidPage(
       mainPanel(
         tabsetPanel(
           tabPanel("Directory Data", tableOutput("plotmeta")),
-          tabPanel("Leaflet Map", leafletOutput("leafletmap")),
+          tabPanel("Leaflet Map", leafletOutput("leafletmap", height = "600px")),
           tabPanel("3D Plot", rglwidgetOutput("plot3D")),
           tabPanel("2D Plot", plotOutput("plot2D"))
           ),
           tags$head(tags$style(HTML("
-                              #console_output {
-                                height: 500px;
-                                overflow-y: auto;
-                              }
+                                {
+                height: 600px;  /* Adjust height for a taller or square map */
+                width: 100%;    /* Adjust width if necessary */
+            }
+            #console_output {
+                height: 500px;
+                overflow-y: auto;
+            }
+            .tab-content {
+                height: 650px;
+                          }
                             "))),
         verbatimTextOutput("console_output")
       )

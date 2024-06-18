@@ -1,7 +1,12 @@
 source("fmt/global.R")
+source("fmt/server.R")
 source("r/functions.R")
 source("r/spatial_container.R")
 source("r/meta_obj.R")
+
+
+devtools::install_github(“atkinsjeff/ForestAnalysisInR”) 
+library(ForestAnalysisInR) ## Launch the app launchRFA()
 
 #Methods
 
@@ -19,14 +24,37 @@ source("r/meta_obj.R")
 
 reticulate::py_config()
 
-# # conda_list()
-# use_condaenv("point_clouds", required = TRUE)
-# py_install("brotli")
-# # miniconda_update(path = miniconda_path())
-# # py_install("open3d", envname = "point_clouds")
+# conda_list()
+
+getwd()
+
+setwd("C:/Users/cscar/FMT")
+
+
+library(reticulate)
+
+install_python("3.9.2")
+virtualenv_create("fmt_py")
+use_virtualenv("fmt_py")
+
+use_python("C:/Users/cscar/OneDrive/Documents/.virtualenvs/fmt_py/Scripts/python.exe", required = TRUE)
+
+conda_install("fmt_py", packages = "gdal")
+conda_install("fmt_py", packages = "pdal")
+
+py_config() 
+
+gdal_test <- import("numpy")
+gdal_test <- import("gdal")
+
+pdal_test <- import("pdal")
+
+py_install(c("gdal", "open3d", "pdal"))
+
+# miniconda_update(path = miniconda_path())
+# py_install("open3d", envname = "point_clouds")
 
 # seeing if the meta_obj works.
-
 
 "C:/Users/cscar/FMT/data/"
 
@@ -50,18 +78,21 @@ str(mo_dir$metadata)
 pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
 
 pc_14$set_crs(32617)
-
+pc_14$LPC
 
 # path_19 <- "data/TTP_2019_decimate.laz"
 pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
 pc_19$set_crs(32617)
 
+pc_19$LPC
+
+
 sf::st_crs(pc_19$mask)
 
 
-# # import SciPy (it will be automatically discovered in "r-reticulate")
-# open3D <- import("open3D")
-# numpy <- import("numpy")
+# import SciPy (it will be automatically discovered in "r-reticulate")
+open3D <- import("open3D")
+numpy <- import("numpy")
 
 # source_python("py/ICP_Object.py")
 

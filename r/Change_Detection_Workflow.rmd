@@ -5,57 +5,69 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
 
-## Notes to Self
+wd <- "C:/Users/cscar/FMT/"
 
-needed shortcuts for vscode : press Ctrl+Shift+V in the editor. You can view the preview side-by-side (Ctrl+K V) 
-Ctrl+Shift+P Open Preview to the Side
-
-```{r}
-
-getwd()
 ```
 
 ## Running the dependancy scripts
 
-These scripts will conenct the class, the functions and the global variables to the app.
+These scripts will connect the class, the functions and the global variables to the app.
 
 ```{r , include=FALSE}
 # Source the required scripts
-source("app/global.R")
-source("r/functions.R")
-source("r/spatial_obj.R")
+source(paste0(wd,"fmt/global.R"))
+source(paste0(wd,"r/functions.R"))
+source(paste0(wd,"r/spatial_container.R"))
+source(paste0(wd,"r/meta_obj.R"))
 ```
+
+## The Meta Data Object - mo
+
+This object is intended to read and generate metadata information to be used for record keeping and cataloguing of the data.
+
+needed shortcuts for vscode : press Ctrl+Shift+V in the editor. You can view the preview side-by-side (Ctrl+K V) 
+Ctrl+Shift+P Open Preview to the Side
+
+
+```{r}
+dir <- paste0(wd,"/data/")
+mo_dir <- mo$new(dir)
+print(mo_dir$metadata)
+```
+
 
 ## Class Structure of the Point Cloud Object
 
  The Class structure for the point cloud object can hold 
  a df, las, CHM (SpatRaster), DTM (SpatRaster), mask (sfc), filepath (character), filename (character)
 
-  spatial_obj <- setRefClass(
-   "point_cloud_obj",
+  spatial_container <- setRefClass(
+    "spatial_container",
     fields = list(
-     data = "data.frame",
-     LPC = "LAS",
-     CHM = "SpatRaster",
-     DTM = "SpatRaster",
-     mask = "sfc",
-     filepath =  "character",
-     filename = "character"))
+      xyz = "data.frame",
+      LPC = "LAS",
+      CHM = "SpatRaster",
+      CHM_raw = "SpatRaster",
+      DTM = "SpatRaster",
+      DTM_raw = "SpatRaster",
+      mask = "sfc",
+      filepath =  "character",
+      filename = "character"
+    )
 
 ## Reading the Class Methods
 
 
-The following function `spatial_obj$methods()` shows the methods of th spatial_obj class, which are inherited functions tof that object
+The following function `spatial_container$methods()` shows the methods of the spatial_container class, which are inherited functions of that object
 
 ```{r, echo=FALSE}
-spatial_obj$methods()
+spatial_container$methods()
 ```
 
 ## Custom methods
 
-to call a method use `spatial_obj$method_name()`
+to call a method use `spatial_container$method_name()`
 
 initialize(spatial_obj, or .rdata),  
 save_chm(spatial_obj$CHM, filepath) saves the currently stored CHM to the filepath,
@@ -79,11 +91,16 @@ On initialisation, an LPC object will be created regardless of the input format
 to initialise the object use `spatial_obj$new(filepath)`
 
 ```{r, echo=FALSE} 
-path_14 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2014_decimate.laz"
-pc_14 <- spatial_obj$new(path_14)
+#Loading and checking the point cloud data for 2014 and 2019
 
-path_19 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2019_decimate.laz"
-pc_19 <- spatial_obj$new(path_19)
+pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
+pc_14$set_crs(32617)
+pc_14$LPC
+
+pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
+pc_19$set_crs(32617)
+
+pc_19$LPC
 ```
 
 ## Functions built with the class to help the processing of Point Cloud Data, Rasters, and Shapefiles
@@ -97,19 +114,6 @@ is_empty_sfc(sfc)   checks to see if the sfc is empty and returns a boolean
 mask_pc(pc)
 
 
-```{r, echo=FALSE}
-
-
-
-
-
-
-
-```
-
-```
-
-
 ## The Tight Hull mask
 
 A tight hull encloses the point cloud data and creates a boundary that represents the extent of 
@@ -118,7 +122,6 @@ the point cloud data. This is used to mask the point cloud data to help with ali
 ```{r, echo=FALSE}
 plot(pc_14$mask)
 ```
-
 
 ## Creating the Digital Terrain Models (DTM)
 
@@ -131,19 +134,14 @@ The resolution is the size of the grid cells used to create the DTM.
 The resolution is specified in the units of the point cloud data. 
 
 
+```{r, echo=FALSE}
 
-```{r, echo=FALSE} 
 pc_14$to_dtm(1)
+
 pc_19$to_dtm(1)
 
 plot(pc_14$DTM)
 ```
-
-```{r, echo=FALSE}
-
-pc_14$DTM
-```
-
 
 ## Creating the Canopy Height Model (CHM)
 
@@ -154,14 +152,11 @@ The CHM requires the DTM, where it will be used to subtract the elevations from 
 
 ```{r, echo=FALSE}
 pc_14$to_chm(1)
+
 pc_19$to_chm(1)
 
-plot(pc_14$CHM)
+plot(pc_19$CHM)
 
-```
-
-```{r, echo=FALSE}
-pc_14$CHM
 ```
 
 
@@ -172,21 +167,44 @@ The `align_rasters()` function from the `raster` package is used to align the ra
 
 
 ```{r, echo=FALSE} 
-
+#This function aligns the two rasters and returns aligned raster objects.
+aligned_chm <- process_raster(pc_14$CHM_raw, pc_19$CHM_raw, source_mask = pc_14$mask, target_mask = pc_19$mask, method = "bilinear")
 
 ```
 
-```{r, echo=FALSE} 
+```{r, echo=FALSE}
+
+# The align_chm saves the output layers as value in a list
+
+source_chm <- aligned_chm[[1]]
+target_chm <- aligned_chm[[2]]
+chm_mask <- aligned_chm[[3]]
+
 ```
 
-```{r, echo=FALSE} 
-```
+## Differencing the CHM Differences
+
+This is a custom function created to do the difference of the CHMs and classify the differences into pre determined bins. These values can be adjusted in the function
+
 
 ```{r, echo=FALSE} 
+
+# Function to generate CHM and classify the differences
+
+chm_diff_test <- CHM_diff_classify(source_chm, target_chm)
+
+plot_stats(chm_diff_test)
 ```
 
-```{r, echo=FALSE} 
-```
+## Display the outputs in leaflet
+
+This function generates a leaflet map that is then projected into the FMT report. The map displays the DTM, CHM, CHM differences, and the mask used to align the rasters
+
+
 
 ```{r, echo=FALSE} 
+
+# Display the outputs. This will break in the markdown but will work in the R console
+
+# displayMap(pc_14$DTM,pc_14$CHM, chm_diff_test, chm_mask)
 ```

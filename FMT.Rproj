@@ -18,7 +18,7 @@ PackageInstallArgs: --no-multiarch --with-keep.source
 PackageRoxygenize: rd,collate,namespace,vignette
 
 PythonType: system
-PythonVersion: 3.9.13
-PythonPath: C:/Users/cscar/AppData/Local/Programs/Python/Python39/python.exe
+PythonVersion: 3.9.2
+PythonPath: C:/Users/cscar/AppData/Local/r-reticulate/r-reticulate/pyenv/pyenv-win/versions/3.9.2/python.exe
 
 SpellingDictionary: en_CA
