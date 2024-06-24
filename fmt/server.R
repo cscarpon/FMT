@@ -89,6 +89,49 @@
       updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
 
     })
+    
+    # Server logic to run ICP on the source and target point clouds
+    
+    observeEvent(input$run_icp, {
+      req(rv$sc1, rv$sc2)
+      
+      new_message <- paste0("Running ICP on Source and Target")
+      rv$console_output <- c(rv$console_output, list(new_message))
+      
+      # Use the conda environment
+      reticulate::use_condaenv("fmt_env", required = TRUE)
+      
+      # Source the Python script
+      icp_module <- paste0(getwd(), "/py/icp_pdal.py")
+      
+      tryCatch({
+        reticulate::source_python(icp_module)
+        
+        # Create instance of the ICP class
+        icp_aligner <- pdal_icp(rv$sc1$filepath, rv$sc2$filepath)
+        
+        # Call the align method
+        aligned_file_path <- icp_aligner$align()
+        
+        # Process the source point cloud
+        if (!is.null(aligned_file_path)) {
+          sc1 <- spatial_container$new(as.character(aligned_file_path))
+          sc1$set_crs(rv$crs)
+          rv$sc1 <- sc1  
+        }
+        
+        if (!is.null(aligned_file_path)) {
+          new_message <- paste0("Alignment completed successfully. Aligned file created at: ", aligned_file_path)
+          rv$console_output <- c(rv$console_output, list(new_message))
+        } else {
+          new_message <- "Alignment failed."
+          rv$console_output <- c(rv$console_output, list(new_message))
+        }
+      }, error = function(e) {
+        new_message <- paste0("An error occurred: ", e$message)
+        rv$console_output <- c(rv$console_output, list(new_message))
+      })
+    })
 
     #Building the DTM for the first PC with Text Prompts
     observeEvent(input$dtm1, {
