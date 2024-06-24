@@ -14,6 +14,7 @@ fluidPage(
           selectInput("selected_source", "Select Source Point Cloud", choices = NULL),
           selectInput("selected_target", "Select Target Point Cloud", choices = NULL),
           actionButton("PC_confirm", "Confirm Point Cloud Selections"),
+          actionButton("run_icp", "ICP Alignment"),
           actionButton("dtm1", "Generate DTM for Source"),
           actionButton("dtm2", "Generate DTM for Target"),
           actionButton("chm1", "Generate CHM for Source"),

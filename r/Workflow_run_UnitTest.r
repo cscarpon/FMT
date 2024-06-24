@@ -47,14 +47,18 @@ str(mo_dir$metadata)
 
 
 
-pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
+pc_14 <- spatial_container$new(mo_dir$metadata$file_path[2])
 
 pc_14$set_crs(32617)
 
 
 # path_19 <- "data/TTP_2019_decimate.laz"
-pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
+pc_19 <- spatial_container$new(mo_dir$metadata$file_path[3])
 pc_19$set_crs(32617)
+
+
+mo_dir$metadata$file_path[3]
+pc_19$save_las("C:\\Users\\cscar\\FMT\\data\\TTP_2019_32617.laz")
 
 sf::st_crs(pc_19$mask)
 
