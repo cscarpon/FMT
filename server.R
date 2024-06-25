@@ -19,16 +19,26 @@
     
     #Server logic to accept the directories and plot the metadata
     
+    
+    # Upload files
+    observeEvent(input$upload_file, {
+      req(input$upload_file)
+      save_path <- file.path(paste0(getwd(), "/data"), input$upload_file$name)
+      file.copy(input$upload_file$datapath, save_path)
+      
+      rv$console_output <- c(rv$console_output, paste0("File uploaded to: ", save_path))
+    })
+    
     observeEvent(input$confirm, {
         # Update the reactive values for in_dir, out_dir, resolution, and crs
         
         # input dir
         in_input <- input$in_dir
-        rv$in_dir <- as.character(in_input)
+        rv$in_dir <- normalizePath(in_input)
         
         #output dir
         out_input <- input$out_dir
-        rv$out_dir <- as.character(out_input)
+        rv$out_dir <- normalizePath(out_input)
         
         #raster resolution
         res <- as.integer(input$resolution)
@@ -37,8 +47,6 @@
         # spatial object crs
         crs <- as.integer(input$crs)
         rv$crs <- crs
-        
-        req(rv$in_dir)  # Make sure the input directory is set
 
         mo_dir <- mo$new(rv$in_dir)
         rv$metadata <- mo_dir$metadata
@@ -70,8 +78,8 @@
       req(input$selected_source, input$selected_target)
       
       # Retrieve the file paths from the selections
-      las_path1 <- input$selected_source
-      las_path2 <- input$selected_target
+      las_path1 <- normalizePath(input$selected_source, winslash = "/")
+      las_path2 <- normalizePath(input$selected_target, winslash = "/")
       
       # Process the source point cloud
       if (!is.null(las_path1)) {
@@ -88,6 +96,9 @@
       }
     
       updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
+      
+      new_message <- paste0("Point clouds loaded:",  " Source: ", las_path1, " Target: ", las_path2)
+      rv$console_output <- c(rv$console_output, list(new_message))
 
     })
     
@@ -411,5 +422,16 @@
     path <- paste0(out_dir, "/", final_name, "_mask.shp")
     selected_las()$save_mask(path)
     print(paste("Mask saved to:", path))
+  })
+  
+  # Clean up uploaded files when the session ends, excluding base files
+  session$onSessionEnded(function() {
+    base_files <- c("TTP_2015.laz", "TTP_2019.laz")
+    uploaded_files <- list.files(rv$in_dir, full.names = TRUE)
+    lapply(uploaded_files, function(file) {
+      if (file.exists(file) && !basename(file) %in% base_files) {
+        file.remove(file)
+      }
+    })
   })
 }
