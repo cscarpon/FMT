@@ -14,7 +14,8 @@
                         target_chm = NULL,
                         union_mask = NULL,
                         classified_diff = NULL,
-                        results = NULL)
+                        results = NULL,
+                        current_legend = NULL)
     
     #Server logic to accept the directories and plot the metadata
     
@@ -56,7 +57,7 @@
       
       # Filter for .laz files
       laz_paths <- rv$metadata %>%
-        dplyr::filter(grepl("\\.laz$", file_path)) %>%
+        dplyr::filter(grepl("\\.laz$ || \\.las$", file_path)) %>%
         dplyr::pull(file_path)
       
       # Update the dropdown for selecting the source point cloud
@@ -88,6 +89,49 @@
     
       updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
 
+    })
+    
+    # Server logic to run ICP on the source and target point clouds
+    
+    observeEvent(input$run_icp, {
+      req(rv$sc1, rv$sc2)
+      
+      new_message <- paste0("Running ICP on Source and Target")
+      rv$console_output <- c(rv$console_output, list(new_message))
+      
+      # Use the conda environment
+      reticulate::use_condaenv("fmt_env", required = TRUE)
+      
+      # Source the Python script
+      icp_module <- paste0(getwd(), "/py/icp_pdal.py")
+      
+      tryCatch({
+        reticulate::source_python(icp_module)
+        
+        # Create instance of the ICP class
+        icp_aligner <- pdal_icp(rv$sc1$filepath, rv$sc2$filepath)
+        
+        # Call the align method
+        aligned_file_path <- icp_aligner$align()
+        
+        # Process the source point cloud
+        if (!is.null(aligned_file_path)) {
+          sc1 <- spatial_container$new(as.character(aligned_file_path))
+          sc1$set_crs(rv$crs)
+          rv$sc1 <- sc1  
+        }
+        
+        if (!is.null(aligned_file_path)) {
+          new_message <- paste0("Alignment completed successfully. Aligned file created at: ", aligned_file_path)
+          rv$console_output <- c(rv$console_output, list(new_message))
+        } else {
+          new_message <- "Alignment failed."
+          rv$console_output <- c(rv$console_output, list(new_message))
+        }
+      }, error = function(e) {
+        new_message <- paste0("An error occurred: ", e$message)
+        rv$console_output <- c(rv$console_output, list(new_message))
+      })
     })
 
     #Building the DTM for the first PC with Text Prompts
@@ -214,8 +258,7 @@
       })
     })
     
-   ## Plot Terminal
-
+    ## Plot Terminal
     output$console_output <- renderPrint({
       lapply(rv$console_output, print)  # Display all console output messages
     })
@@ -224,6 +267,7 @@
     observeEvent(input$plot_source, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc1$LPC)
+        rgl::clear3d() # Clear previous plot
         lidR::plot(rv$sc1$LPC)
         rglwidget()
       })
@@ -253,8 +297,41 @@
     observeEvent(input$plot_leaf, {
       output$leafletmap <- renderLeaflet({
         req(rv$sc1)
-        displayMap(rv$sc1$DTM, rv$source_chm,rv$classified_diff, rv$union_mask)
+        displayMap(rv$sc1$DTM, rv$source_chm, rv$classified_diff, rv$union_mask)
       })
+    })
+    
+    observeEvent(input$leafletmap_groups, {
+      legend <- NULL
+      
+      if ("DTM" %in% input$leafletmap_groups) {
+        legend <- "DTM"
+      } else if ("CHM" %in% input$leafletmap_groups) {
+        legend <- "CHM"
+      } else if ("Diff" %in% input$leafletmap_groups) {
+        legend <- "Diff"
+      }
+      
+      rv$current_legend <- legend
+      
+      if (is.null(rv$current_legend)) {
+        leafletProxy("leafletmap") %>% clearControls()
+      } else if (rv$current_legend == "DTM") {
+        leafletProxy("leafletmap") %>% clearControls() %>%
+          addLegend(pal = colorNumeric("magma", domain = values(rv$sc1$DTM), na.color = "transparent"), 
+                    values = values(rv$sc1$DTM), position = "bottomright", title = "Digital Terrain Model (m)", 
+                    layerId = "dtmLegend", opacity = 1)
+      } else if (rv$current_legend == "CHM") {
+        leafletProxy("leafletmap") %>% clearControls() %>%
+          addLegend(pal = colorNumeric("magma", domain = values(rv$source_chm), na.color = "transparent"), 
+                    values = values(rv$source_chm), position = "bottomright", title = "Canopy Height Model (m)", 
+                    layerId = "chmLegend", opacity = 1)
+      } else if (rv$current_legend == "Diff") {
+        leafletProxy("leafletmap") %>% clearControls() %>%
+          addLegend(colors = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"), 
+                    labels = c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10"), 
+                    position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
+      }
     })
 
  ## Save Buttons
