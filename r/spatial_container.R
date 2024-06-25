@@ -55,6 +55,12 @@ spatial_container <- setRefClass(
         #Read the las files
         las <- lidR::readLAS(file_path)
         
+        # Check for ground classifications (value = 2)
+        if (!any(las$Classification == 2)) {
+          # No ground classifications found, classify ground
+          las <- classify_ground(las, algorithm = pmf(ws = 5, th = 3))
+        }
+        
         #append the new las file to the list
         .self$LPC <<-  las
         

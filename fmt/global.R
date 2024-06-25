@@ -4,11 +4,13 @@ library(dplyr) # data manipulation
 library(rgl) # used for colour gradients
 library(terra) # used for raster processing
 library(lidR) # used for lidar processing
-library(sf) # used for vector maniputlation
+library(sf) # used for vector manipulation
 library(ggplot2) # used for plotting
 library(dplyr) # used for data manipulation
 library(scales) # used for percent
 library(leaflet) # used for interactive map
+library(leaflet.extras) # used for dynamic legends
+library(htmlwidgets)
 library(reticulate) # python in r
 library(gridExtra) # creates the grid index for density
 

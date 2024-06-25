@@ -120,8 +120,8 @@ CHM_diff_classify <- function(earlier, later) {
 
 plot_stats <- function(difference_raster) {
   rast_freq <- terra::freq(difference_raster)
-  rast_freq$area <- rast_freq$count * 0.5 #Square metres
-
+  rast_freq$area <- rast_freq$count * 0.5 # Square metres
+  
   # Handling NaN
   rast_freq$value[is.nan(rast_freq$value)] <- "NaN"
   
@@ -138,16 +138,29 @@ plot_stats <- function(difference_raster) {
   
   # Convert value to a factor
   rast_freq$value <- factor(rast_freq$value, levels = class_values, labels = class_labels)
-
+  
   # Plot the area column with different colors for each bar and a legend
   ggplot(rast_freq, aes(x = value, y = area, fill = factor(value))) +
     geom_bar(stat = "identity") +
     labs(x = "Loss and Gain", y = "Area (m^2)", fill = "Class") +
     scale_x_discrete(labels=c('Large Loss', 'Loss', 'Minimal Change', 'Growth', 'Large Growth')) +
     ggtitle("Raster Statistics for Change Detection") +
-    scale_fill_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00"),
-                      labels = class_labels, drop = FALSE) +
-    theme_minimal() +
+    scale_fill_manual(
+      values = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"),
+      labels = class_labels, 
+      drop = FALSE,
+      guide = guide_legend(ncol = 1) # Stack the legend items
+    ) +
+    theme_minimal(base_size = 15) +  # Set a base size for the text
+    theme(
+      axis.title = element_text(size = 16, face = "bold"),
+      axis.text = element_text(size = 14),
+      legend.title = element_text(size = 14, face = "bold"), # Reduced legend title size
+      legend.text = element_text(size = 12),  # Reduced legend text size
+      legend.key.size = unit(0.8, "cm"),  # Reduced legend key size
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      legend.position = "right"  # Adjust the legend position if needed
+    ) +
     scale_y_continuous(labels = comma)
 }
 
@@ -243,73 +256,101 @@ mask_pc <- function(pc) {
 }
 
 displayMap <- function(dtm, chm, chm_diff, mask) {
-
-  m <- leaflet::leaflet() %>%
-    leaflet::addTiles()
-
-  m
-
-  # Transform chm_mask
-  mask <- terra::project(mask, "EPSG:4326")
-
-  # Mask and project DTM_14
-  if (!is_empty(dtm)) {
+  m <- leaflet() %>%
+    addTiles()
+  
+  # Transform mask if it's not NULL
+  if (!is.null(mask)) {
+    mask <- terra::project(mask, "EPSG:4326")
+  }
+  
+  # Mask and project DTM if it's not NULL and mask is not NULL
+  if (!is.null(dtm) && !is.null(mask)) {
     dtm_m <- terra::project(dtm, "EPSG:4326")
     dtm_m <- terra::mask(dtm_m, mask)
+  } else if (!is.null(dtm)) {
+    dtm_m <- terra::project(dtm, "EPSG:4326")
   } else {
     dtm_m <- NULL
   }
-
-  # Mask and project source_chm
-  if (!is_empty(chm)) {
+  
+  # Mask and project CHM if it's not NULL and mask is not NULL
+  if (!is.null(chm) && !is.null(mask)) {
     chm_m <- terra::project(chm, "EPSG:4326")
     chm_m <- terra::mask(chm_m, mask)
+  } else if (!is.null(chm)) {
+    chm_m <- terra::project(chm, "EPSG:4326")
   } else {
     chm_m <- NULL
   }
-
-  # Project chm_diff
-  diff <- if (!is_empty(chm_diff)) terra::project(chm_diff, "EPSG:4326") else NULL
-  diff <- terra::clamp(diff, 1, 5)
-  diff_round <- round(diff)
-
   
-
-  if (!is_empty(chm)) {
-    m <- leaflet::addRasterImage(m, chm_m, group = "CHM", maxBytes = Inf)
+  # Project chm_diff if it's not NULL
+  if (!is.null(chm_diff)) {
+    diff <- terra::project(chm_diff, "EPSG:4326")
+    diff <- terra::clamp(diff, 1, 5)
+    diff_round <- round(diff)
+  } else {
+    diff_round <- NULL
   }
-
-  if (!is_empty(diff_round)) {
-    colors <- c("darkorange", "orange", "white", "lightgreen", "darkgreen")
-    hex_values <- apply(col2rgb(colors), 2, function(col) rgb(col[1], col[2], col[3], maxColorValue = 255))
-    pal <- leaflet::colorNumeric(hex_values,
-                                 terra::values(diff_round),
-                                 na.color = "transparent")
+  
+  # Add DTM raster image if it's not NULL
+  if (!is.null(dtm_m)) {
+    pal_dtm <- colorNumeric("magma", domain = values(dtm_m), na.color = "transparent")
+    m <- addRasterImage(m, dtm_m, colors = pal_dtm, group = "DTM", maxBytes = Inf, opacity = 1)
+  }
+  
+  # Add CHM raster image if it's not NULL
+  if (!is.null(chm_m)) {
+    pal_chm <- colorNumeric("magma", domain = values(chm_m), na.color = "transparent")
+    m <- addRasterImage(m, chm_m, colors = pal_chm, group = "CHM", maxBytes = Inf, opacity = 1)
+  }
+  
+  # Add chm_diff raster image with legend if it's not NULL
+  if (!is.null(diff_round)) {
+    colors <- c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen")
+    pal_diff <- colorNumeric(palette = colors, domain = values(diff_round), na.color = "transparent")
+    
+    m <- addRasterImage(m, diff_round, colors = pal_diff, group = "Diff", maxBytes = Inf, opacity = 1)
+  }
+  
+  # Add mask polygons if mask is not NULL
+  if (!is.null(mask)) {
+    m <- addPolygons(m, data = st_as_sf(mask, crs = 4326), color = "black", fill = FALSE, group = "Mask")
+  }
+  
+  # Add layers control with all layers turned off initially except the mask
+  overlayGroups <- c()
+  if (!is.null(dtm_m)) overlayGroups <- c(overlayGroups, "DTM")
+  if (!is.null(chm_m)) overlayGroups <- c(overlayGroups, "CHM")
+  if (!is.null(diff_round)) overlayGroups <- c(overlayGroups, "Diff")
+  if (!is.null(mask)) overlayGroups <- c(overlayGroups, "Mask")
+  
+  m <- addLayersControl(m, overlayGroups = overlayGroups, options = layersControlOptions(collapsed = FALSE))
+  
+  # Hide all layers except the mask
+  if (!is.null(dtm_m)) m <- hideGroup(m, "DTM")
+  if (!is.null(chm_m)) m <- hideGroup(m, "CHM")
+  if (!is.null(diff_round)) m <- hideGroup(m, "Diff")
+  m <- showGroup(m, "Mask")
+  
+  # Add legends for each layer but do not show them initially
+  if (!is.null(dtm_m)) {
+    m <- addLegend(m, pal = pal_dtm, values = values(dtm_m), position = "bottomright", title = "Digital Terrain Model (m)", layerId = "dtmLegend", opacity = 1)
+  }
+  
+  if (!is.null(chm_m)) {
+    m <- addLegend(m, pal = pal_chm, values = values(chm_m), position = "bottomright", title = "Canopy Height Model (m)", layerId = "chmLegend", opacity = 1)
+  }
+  
+  if (!is.null(diff_round)) {
     labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
-
-    m <- leaflet::addRasterImage(m,
-                                 diff_round,
-                                 colors = pal,
-                                 group = "Diff",
-                                 maxBytes = Inf)
-    m <- leaflet::addLegend(m,
-                            colors = colors,
-                            labels = labels,
-                            position = "bottomright",
-                            title = "Change in Tree Height (m)")
+    m <- addLegend(m, colors = colors, labels = labels, position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
   }
   
-  m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "red", fill = FALSE, group = "Mask")
-  if (!is_empty(dtm)) {
-    m <- leaflet::addRasterImage(m, dtm_m, group = "DTM", maxBytes = Inf)
-  }
-
-  m <- leaflet::addLayersControl(m,
-                                 overlayGroups = c( "DTM", "CHM", "Diff","Mask"),
-                                 options = leaflet::layersControlOptions(collapsed = FALSE))
-
   return(m)
 }
+
+
 
 initial_map <- function(mask) {
   mask <- if (!is_empty_sfc(mask)) terra::project(mask, "EPSG:4326") else NULL
@@ -318,7 +359,7 @@ initial_map <- function(mask) {
     leaflet::addTiles()
 
   if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-    m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "red", fill = FALSE,  group = "Mask")
+    m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "black", fill = FALSE,  group = "Mask")
   }
   m <- leaflet::addLayersControl(
     m,
