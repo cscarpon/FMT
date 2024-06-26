@@ -18,7 +18,8 @@
                         current_legend = NULL)
     
     #Server logic to accept the directories and plot the metadata
-    
+    # Non-reactive value to store the data directory path
+    data_default <- paste0(getwd(), "/data/")
     
     # Upload files
     observeEvent(input$upload_file, {
@@ -47,7 +48,9 @@
         # spatial object crs
         crs <- as.integer(input$crs)
         rv$crs <- crs
-
+        
+        req(rv$in_dir)
+        
         mo_dir <- mo$new(rv$in_dir)
         rv$metadata <- mo_dir$metadata
         
@@ -64,22 +67,39 @@
       req(rv$metadata)  # Ensure metadata is loaded
       
       # Filter for .laz files
-      laz_paths <- rv$metadata %>%
+      laz_names <- rv$metadata %>%
         dplyr::filter(grepl("\\.laz$ || \\.las$", file_path)) %>%
-        dplyr::pull(file_path)
+        dplyr::pull(file_name)
       
       # Update the dropdown for selecting the source point cloud
-      updateSelectInput(session, "selected_source", choices = laz_paths)
-      updateSelectInput(session, "selected_target", choices = laz_paths)
+      updateSelectInput(session, "selected_source", choices = laz_names)
+      updateSelectInput(session, "selected_target", choices = laz_names)
     })
     
     observeEvent(input$PC_confirm, {
       # Ensure the selections are made
-      req(input$selected_source, input$selected_target)
+      req(input$selected_source, input$selected_target, rv$metadata)
       
+      laz_data <- mo_dir$metadata %>%
+        dplyr::filter(grepl("\\.laz$|\\.las$", file_path)) %>%
+        dplyr::select(file_path, file_name)
+      
+      source_laz <- input$selected_source
+      target_laz <- input$selected_target
+      
+      # Match source_laz and target_laz to their corresponding paths
+      source_path <- laz_data %>%
+        dplyr::filter(file_name == source_laz) %>%
+        dplyr::pull(file_path)
+      
+      # Match laz_name1 and laz_name2 to their corresponding paths
+      target_path <- laz_data %>%
+        dplyr::filter(file_name == target_laz)  %>%
+        dplyr::pull(file_path)
+
       # Retrieve the file paths from the selections
-      las_path1 <- normalizePath(input$selected_source, winslash = "/")
-      las_path2 <- normalizePath(input$selected_target, winslash = "/")
+      las_path1 <- normalizePath(source_path, winslash = "/")
+      las_path2 <- normalizePath(target_path, winslash = "/")
       
       # Process the source point cloud
       if (!is.null(las_path1)) {
@@ -427,7 +447,7 @@
   # Clean up uploaded files when the session ends, excluding base files
   session$onSessionEnded(function() {
     base_files <- c("TTP_2015.laz", "TTP_2019.laz")
-    uploaded_files <- list.files(rv$in_dir, full.names = TRUE)
+    uploaded_files <- list.files(data_default, full.names = TRUE)
     lapply(uploaded_files, function(file) {
       if (file.exists(file) && !basename(file) %in% base_files) {
         file.remove(file)
