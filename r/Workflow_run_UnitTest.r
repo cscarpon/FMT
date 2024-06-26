@@ -1,4 +1,5 @@
-source("fmt/global.R")
+source("global.R")
+source("server.R")
 source("r/functions.R")
 source("r/spatial_container.R")
 source("r/meta_obj.R")
@@ -39,6 +40,7 @@ reticulate::py_config()
 dir <- "./data/"
 mo_dir <- mo$new(dir)
 print(mo_dir$metadata)
+
 
 str(mo_dir$metadata)
 
