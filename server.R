@@ -80,7 +80,7 @@
       # Ensure the selections are made
       req(input$selected_source, input$selected_target, rv$metadata)
       
-      laz_data <- mo_dir$metadata %>%
+      laz_data <- rv$metadata %>%
         dplyr::filter(grepl("\\.laz$|\\.las$", file_path)) %>%
         dplyr::select(file_path, file_name)
       
