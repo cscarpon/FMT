@@ -298,7 +298,6 @@
     observeEvent(input$plot_source, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc1$LPC)
-        rgl::clear3d() # Clear previous plot
         lidR::plot(rv$sc1$LPC)
         rglwidget()
       })
