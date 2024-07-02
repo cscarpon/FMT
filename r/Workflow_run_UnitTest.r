@@ -41,29 +41,39 @@ dir <- "./data/"
 mo_dir <- mo$new(dir)
 print(mo_dir$metadata)
 
-
-str(mo_dir$metadata)
-
-# path_14 <- "C:/Users/cscar/FMT/data/TTP_2014_decimate.laz"
-# path_14 <- "data/TTP_2014_decimate.laz"
-
-
-
-pc_14 <- spatial_container$new(mo_dir$metadata$file_path[2])
+pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
 
 pc_14$set_crs(32617)
 
+test_message <- print(pc_14$LPC)
+
+header(pc_14$LPC)
+
+str(test_message)
+
+capture_output <- function(expr) {
+  temp <- tempfile()
+  sink(temp)
+  on.exit(sink())
+  on.exit(unlink(temp), add = TRUE)
+  eval(expr)
+  readLines(temp)
+}
+
+test_capture <- capture_output(print(pc_14$LPC))
+
+str(test_capture)
 
 # path_19 <- "data/TTP_2019_decimate.laz"
-pc_19 <- spatial_container$new(mo_dir$metadata$file_path[3])
+pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
 pc_19$set_crs(32617)
 
 
-mo_dir$metadata$file_path[3]
-pc_19$save_las("C:\\Users\\cscar\\FMT\\data\\TTP_2019_32617.laz")
+str(pc_19)
 
-sf::st_crs(pc_19$mask)
+??lidR
 
+leaflet::leaflet()
 
 # # import SciPy (it will be automatically discovered in "r-reticulate")
 # open3D <- import("open3D")
