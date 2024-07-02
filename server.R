@@ -15,19 +15,39 @@
                         union_mask = NULL,
                         classified_diff = NULL,
                         results = NULL,
-                        current_legend = NULL)
+                        current_legend = NULL,
+                        out_num = 0)
     
     #Server logic to accept the directories and plot the metadata
     # Non-reactive value to store the data directory path
+    # Define the default paths
     data_default <- paste0(getwd(), "/data/")
+    save_drive <- paste0(getwd(), "/saves/")
+    
+    # Call the function to create directories if they don't exist
+    create_directories(data_default, save_drive)
+    
+    # Ensure PhantomJS is installed
+    ensure_phantomjs_installed()
+    
+    rv <- reactiveValues(console_output = list(messages = "Welcome to FMT"))
+    
+    output$console_output <- renderUI({
+      lapply(seq_along(rv$console_output), function(i) {
+        div(
+          style = "border: 1px solid #ccc; padding: 5px; margin: 5px; background-color: #f9f9f9;",
+          HTML(paste0("<strong>Message ", i, ":</strong><br>", rv$console_output[[i]]))
+        )
+      })
+    })
     
     # Upload files
     observeEvent(input$upload_file, {
-      req(input$upload_file)
+      req(input$upload_file, rv)
       save_path <- file.path(paste0(getwd(), "/data"), input$upload_file$name)
       file.copy(input$upload_file$datapath, save_path)
       
-      rv$console_output <- c(rv$console_output, paste0("File uploaded to: ", save_path))
+     add_message(paste0("File uploaded to: ", save_path), rv)
     })
     
     observeEvent(input$confirm, {
@@ -101,12 +121,19 @@
       las_path1 <- normalizePath(source_path, winslash = "/")
       las_path2 <- normalizePath(target_path, winslash = "/")
       
+      add_message("Initializing the Source point cloud", rv)
+      
       # Process the source point cloud
       if (!is.null(las_path1)) {
         sc1 <- spatial_container$new(as.character(las_path1))
         sc1$set_crs(rv$crs)
-        rv$sc1 <- sc1  
+        rv$sc1 <- sc1
       }
+      
+      new_message <- capture_output(print(rv$sc1$LPC))
+      add_message(new_message, rv)
+      
+      add_message("Initializing the Target point cloud", rv)
       
       # Process the target point cloud
       if (!is.null(las_path2)) {
@@ -114,11 +141,10 @@
         sc2$set_crs(rv$crs)
         rv$sc2 <- sc2  
       }
-    
-      updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
+      new_message <- capture_output(print(rv$sc2$LPC))
+      add_message(new_message, rv)
       
-      new_message <- paste0("Point clouds loaded:",  " Source: ", las_path1, " Target: ", las_path2)
-      rv$console_output <- c(rv$console_output, list(new_message))
+      updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
 
     })
     
@@ -127,8 +153,7 @@
     observeEvent(input$run_icp, {
       req(rv$sc1, rv$sc2)
       
-      new_message <- paste0("Running ICP on Source and Target")
-      rv$console_output <- c(rv$console_output, list(new_message))
+      add_message("Running ICP on Source and Target", rv)
       
       # Use the conda environment
       reticulate::use_condaenv("fmt_env", required = TRUE)
@@ -154,14 +179,14 @@
         
         if (!is.null(aligned_file_path)) {
           new_message <- paste0("Alignment completed successfully. Aligned file created at: ", aligned_file_path)
-          rv$console_output <- c(rv$console_output, list(new_message))
+          add_message(new_message, rv)
         } else {
           new_message <- "Alignment failed."
-          rv$console_output <- c(rv$console_output, list(new_message))
+          add_message(new_message, rv)
         }
       }, error = function(e) {
         new_message <- paste0("An error occurred: ", e$message)
-        rv$console_output <- c(rv$console_output, list(new_message))
+        add_message(new_message, rv)
       })
     })
 
@@ -175,11 +200,11 @@
           rv$sc1$to_dtm(rv$resolution)
           
           #Printing the DTM statistics
-          object_message <- print(rv$sc1$DTM)
-          rv$console_output <- c(rv$console_output, list(object_message))
+          object_message <- capture_output(print(rv$sc1$DTM))
+          add_message(object_message, rv)
         }, error = function(e){
           new_message <- paste("Error in creating DTM:", e$message)
-          rv$console_output <- c(rv$console_output, list(new_message))
+          add_message(new_message, rv)
       })
     })
 
@@ -195,11 +220,11 @@
         rv$sc2$to_dtm(rv$resolution)
         
         #Printing the DTM statistics
-        object_message <- print(rv$sc2$DTM)
-        rv$console_output <- c(rv$console_output, list(object_message))
+        object_message <- capture_output(print(rv$sc2$DTM))
+        add_message(object_message, rv)
       }, error = function(e){
         new_message <- paste("Error in creating DTM:", e$message)
-        rv$console_output <- c(rv$console_output, list(new_message))
+        add_message(new_message, rv)
       })
     })
 
@@ -208,18 +233,17 @@
         req(rv$sc1, rv$resolution)
       
         new_message <- paste0("Generating CHM for Source")
-        rv$console_output <- c(rv$console_output, list(new_message))
-      
-      
+        add_message(new_message, rv)
+        
         tryCatch({
         
         rv$sc1$to_chm(resolution = rv$resolution)
 
-        object_message <- print(rv$sc1$CHM)
-        rv$console_output <- c(rv$console_output, list(object_message))
+        object_message <- capture_output(print(rv$sc1$CHM))
+        add_message(object_message, rv)
         }, error = function(e){
           new_message <- paste("Error in creating CHM:", e$message)
-          rv$console_output <- c(rv$console_output, list(new_message))
+          add_message(new_message, rv)
       })
     })
 
@@ -227,25 +251,24 @@
     
       req(rv$sc2, rv$resolution)
       new_message <- paste0("Generating CHM for Target")
-      rv$console_output <- c(rv$console_output, list(new_message))
+      add_message(new_message, rv)
     
       
       tryCatch({
         
         rv$sc2$to_chm(resolution = rv$resolution)
-
-        object_message <- print(rv$sc2$CHM)
-        rv$console_output <- c(rv$console_output, list(object_message))
+        object_message <- capture_output(print(rv$sc2$CHM))
+        add_message(object_message, rv)
         }, error = function(e) {
           new_message <- paste("Error in creating CHM2:", e$message)
-          rv$console_output <- c(rv$console_output, list(new_message))
+          add_message(new_message, rv)
       })
     })
 
     observeEvent(input$align_chms, {
       req(rv$sc1, rv$sc2)
       new_message <- "Running Raster Alignment"
-      rv$console_output <- c(rv$console_output, list(new_message))
+      add_message(new_message, rv)
       
       tryCatch({
         aligned_chm <- process_raster(rv$sc1$CHM_raw, rv$sc2$CHM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
@@ -256,11 +279,11 @@
 
         
         new_message <- "Raster Alignment Complete"
-        rv$console_output <- c(rv$console_output, list(new_message))
+        add_message(new_message, rv)
         
       }, error = function(e){
         new_message <- paste("Error in aligning CHMs:", e$message)
-        rv$console_output <- c(rv$console_output, list(new_message))
+        add_message(new_message, rv)
       })
     })
 
@@ -270,7 +293,7 @@
       # Ensure the DTMs exist and have been processed for each spatial_obj
       req(rv$source_chm, rv$target_chm, rv$union_mask)
       new_message <- "Running Classification"
-      rv$console_output <- c(rv$console_output, list(new_message))
+      add_message(new_message, rv)
 
       tryCatch({
         
@@ -281,25 +304,20 @@
         rv$classified_diff <- diff_class
 
         new_message <- "Classification Complete"
-        rv$console_output <- c(rv$console_output, list(new_message))
+        add_message(new_message, rv)
         
       }, error = function(e){
         new_message <- paste("Error in Classifying CHMs:", e$message)
-        rv$console_output <- c(rv$console_output, list(new_message))
+        add_message(new_message, rv)
       })
     })
     
-    ## Plot Terminal
-    output$console_output <- renderPrint({
-      lapply(rv$console_output, print)  # Display all console output messages
-    })
     
   ## Plot Source LAS
     observeEvent(input$plot_source, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc1$LPC)
-        rgl::clear3d() # Clear previous plot
-        lidR::plot(rv$sc1$LPC)
+        lidR::plot(rv$sc1$LPC, bg = "white")
         rglwidget()
       })
     })
@@ -309,7 +327,7 @@
     observeEvent(input$plot_target, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc2$LPC)
-        lidR::plot(rv$sc2$LPC)
+        lidR::plot(rv$sc2$LPC, bg = "white")
         rglwidget()
       })
     })
@@ -324,13 +342,18 @@
     })
     
     ##Plot Webmap
-    
-    observeEvent(input$plot_leaf, {
-      output$leafletmap <- renderLeaflet({
-        req(rv$sc1)
-        displayMap(rv$sc1$DTM, rv$source_chm, rv$classified_diff, rv$union_mask)
+
+     observeEvent(input$plot_leaf, {
+       output$leafletmap <- renderLeaflet({
+         req(rv$sc1)
+         displayMap(rv$sc1$DTM, rv$source_chm, rv$classified_diff, rv$union_mask)
       })
     })
+    
+    # output$leafletmap <- renderLeaflet({
+    #   req(rv$sc1)
+    #   initial_map(rv$sc1$mask)
+    # })
     
     observeEvent(input$leafletmap_groups, {
       legend <- NULL
@@ -386,10 +409,11 @@
       filename <- basename(filepath)
       filesplit <- strsplit(filename, "\\.")[[1]]
       final_name <- filesplit[1]
-      out_dir <- normalizePath(rv$out_dir)
+      out_dir <- selected_las()$out_dir
       path <- paste0(out_dir, "/", final_name, ".laz")
       las$save_las(path)
       print(paste("LAS file saved to:", path))
+      updateOutNum()
     } else {
       print("No file path found for saving LAS.")
     }
@@ -404,11 +428,12 @@
     filename <- basename(filepath)
     filesplit <- strsplit(filename, "\\.")[[1]]
     final_name <- filesplit[1]
-    out_dir <- normalizePath(rv$out_dir)
+    out_dir <- selected_las()$out_dir
     path <- paste0(out_dir, "/", final_name, "_DTM.tif")
     
     selected_las()$save_dtm(path)
     print(paste("DTM file saved to:", path))
+    updateOutNum()
   })
  
   observeEvent(input$save_chm, {
@@ -420,11 +445,12 @@
     filename <- basename(filepath)
     filesplit <- strsplit(filename, "\\.")[[1]]
     final_name <- filesplit[1]
-    out_dir <- normalizePath(rv$out_dir)
+    out_dir <- selected_las()$out_dir
     path <- paste0(out_dir, "/", final_name, "_CHM.tif")
     
     selected_las()$save_chm(path)
     print(paste("CHM file saved to:", path))
+    updateOutNum()
   })
  
   observeEvent(input$save_mask, {
@@ -437,11 +463,30 @@
     filename <- basename(filepath)
     filesplit <- strsplit(filename, "\\.")[[1]]
     final_name <- filesplit[1]
-    out_dir <- normalizePath(rv$out_dir)
+    out_dir <- selected_las()$out_dir
     
     path <- paste0(out_dir, "/", final_name, "_mask.shp")
     selected_las()$save_mask(path)
     print(paste("Mask saved to:", path))
+  })
+  
+  observeEvent(input$saveMap, {
+    req(rv$sc1)
+    
+    map <- leafletProxy("leafletmap")
+    
+    output_dir <- rv$out_dir
+    
+    out_num <- as.character(rv$out_num)
+    
+    mapshot_file <- normalizePath(file.path(output_dir, paste0("leaflet_map_",out_num, ".png")))
+    print(paste("Mapshot file path:", mapshot_file))
+    
+    mapview::mapshot(map, file = mapshot_file)
+    print("Mapshot taken")
+    
+    updateOutNum()
+    print("Output number updated")
   })
   
   # Clean up uploaded files when the session ends, excluding base files
