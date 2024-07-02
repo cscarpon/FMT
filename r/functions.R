@@ -256,8 +256,16 @@ mask_pc <- function(pc) {
 }
 
 displayMap <- function(dtm, chm, chm_diff, mask) {
-  m <- leaflet() %>%
-    addTiles()
+  m <- leaflet::leaflet() %>%
+    leaflet::addTiles() %>%
+    leaflet::addScaleBar(position = "bottomleft") %>%
+    leaflet::addMeasure(
+      position = "topleft", 
+      primaryLengthUnit = "meters", 
+      primaryAreaUnit = "sqmeters",
+      activeColor = "#3D535D",
+      completedColor = "#7D4479")
+  
   
   # Transform mask if it's not NULL
   if (!is.null(mask)) {
@@ -350,21 +358,84 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   return(m)
 }
 
+# initial_map <- function(mask) {
+# 
+#   m <- leaflet::leaflet() %>%
+#     leaflet::addTiles()
+# 
+#   if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
+#     m <- leaflet::addPolygons(m, data = st_as_sf(mask, crs = 4326), color = "black", fill = FALSE, group = "Mask")
+#   }
+#   m <- leaflet::addLayersControl(
+#     m,
+#     overlayGroups = c("Mask"),
+#     options = leaflet::layersControlOptions(collapsed = FALSE)
+#   )
+#   return(m)
+# }
 
-
-initial_map <- function(mask) {
-  mask <- if (!is_empty_sfc(mask)) terra::project(mask, "EPSG:4326") else NULL
-
-  m <- leaflet::leaflet() %>%
-    leaflet::addTiles()
-
-  if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-    m <- leaflet::addPolygons(m, data = sf::st_as_sf(mask, crs = 4326), color = "black", fill = FALSE,  group = "Mask")
+add_message <- function(message, rv, session = session) {
+  # Handle non-character inputs by converting them to character
+  if (!is.character(message)) {
+    message <- as.character(message)
   }
-  m <- leaflet::addLayersControl(
-    m,
-    overlayGroups = c("Mask"),
-    options = leaflet::layersControlOptions(collapsed = FALSE)
-  )
-  return(m)
+  
+  # If the message is a vector of strings, concatenate them with HTML line breaks
+  if (length(message) > 1) {
+    message <- paste(message, collapse = "<br>")
+  }
+  
+  # Add a timestamp to the message
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  full_message <- paste0(timestamp, ": ", message)
+  
+  # Update the reactive values and ensure reactivity with isolate
+  shiny::isolate({
+    rv$console_output <- c(rv$console_output, full_message)
+  })
+  
+  # Use the session to flush the console
+  flush.console()
+}
+
+capture_output <- function(expr) {
+  temp <- tempfile()
+  sink(temp)
+  on.exit(sink())
+  on.exit(unlink(temp), add = TRUE)
+  eval(expr)
+  readLines(temp)
+}
+
+# Function to update the number of items in out_dir
+updateOutNum <- function(rv, session = session) {
+  rv$out_num <- length(list.files(rv$out_dir))
+}
+
+# Function to ensure PhantomJS is installed in a designated directory
+ensure_phantomjs_installed <- function(temp_dir = "/FMT/Temp_dir/") {
+  if (!dir.exists(temp_dir)) {
+    dir.create(temp_dir, showWarnings = FALSE)
+  }
+  Sys.setenv(TMPDIR = temp_dir)
+  
+  if (!webshot::is_phantomjs_installed()) {
+    webshot::install_phantomjs()
+  }
+}
+
+create_directories <- function(data_dir, save_dir) {
+  if (!dir.exists(data_dir)) {
+    dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
+    message(paste("Created directory:", data_dir))
+  } else {
+    message(paste("Directory already exists:", data_dir))
+  }
+  
+  if (!dir.exists(save_dir)) {
+    dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
+    message(paste("Created directory:", save_dir))
+  } else {
+    message(paste("Directory already exists:", save_dir))
+  }
 }
