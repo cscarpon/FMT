@@ -68,37 +68,21 @@ Powershell is similar to the terminal which allows command line inputs which is 
 
 Windows requires that you set `PATH` variables to let Windows know where a program's executable `.exe` file is. You can permanently set these, are you can temporarily set it. Currently, we are going to temporarily let Windows know where R is if it has not found it.
 
-1. In the Powershell type `$env:Path += ";C:\Program Files\R\R-4.2.0\bin"` Change the version number to the one for the most recent R build on your computer.
-   
-![alt text](images/path.png) 
-
-2. This line will tell Windows to download the relevant packages: `Rscript.exe -e "install.packages(c('lidR', 'shiny', 'shinyFiles', 'sf', 'leaflet', 'rgl', 'shinydashboard', 'terra','ggplot2','scales','reticulate'))"`
-
-![alt text](images/install.png)
-
-3. We can clone the repo to our local drive. Select the green "Code" button and select the HTTPS URL. 
+1. In the Powershell type `$env:Path += ";C:\Program Files\R\R-4.4.1\bin"` Change the version number to the one for the most recent R build on your computer.
+2. We can clone the repo to our local drive. Select the green "Code" button and select the HTTPS URL.
 
 ![alt text](images/clone.png)
 
-4. Paste that code into the terminal type `git clone [fmt/url]`
+3. Paste that code into the terminal type `git clone https://github.com/cscarpon/FMT.git`
 
 ![alt text](images/download.png)
 
-5. Now change directory `cd` to the newly downloaded repo `cd fmt`
+4. Now change directory `cd` to the newly downloaded repo `cd FMT`
 
 ![alt text](images/cd.png)
 
-6. Run the app
+5. This line will tell Windows to download the r environment `Rscript.exe r\initialize_project.R`
 
-`Rscript.exe fmt/app.R`
-
-![alt text](images/app.png)
+6. Run the app : `Rscript.exe `app.R`
 
 ``
-
-## Docker
-
-The image and container are made, debugging on JS react values in Chrome
-## Server Usage
-
-In the progress of building and deploying. 
