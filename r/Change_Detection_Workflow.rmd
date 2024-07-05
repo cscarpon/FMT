@@ -14,6 +14,7 @@ Ctrl+Shift+P Open Preview to the Side
 
 ```{r}
 
+
 getwd()
 ```
 
