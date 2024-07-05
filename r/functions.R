@@ -358,22 +358,6 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   return(m)
 }
 
-# initial_map <- function(mask) {
-# 
-#   m <- leaflet::leaflet() %>%
-#     leaflet::addTiles()
-# 
-#   if (!is.null(mask) && any(class(mask) %in% c("sf", "sfc"))) {
-#     m <- leaflet::addPolygons(m, data = st_as_sf(mask, crs = 4326), color = "black", fill = FALSE, group = "Mask")
-#   }
-#   m <- leaflet::addLayersControl(
-#     m,
-#     overlayGroups = c("Mask"),
-#     options = leaflet::layersControlOptions(collapsed = FALSE)
-#   )
-#   return(m)
-# }
-
 add_message <- function(message, rv, session = session) {
   # Handle non-character inputs by converting them to character
   if (!is.character(message)) {
@@ -410,18 +394,6 @@ capture_output <- function(expr) {
 # Function to update the number of items in out_dir
 updateOutNum <- function(rv, session = session) {
   rv$out_num <- length(list.files(rv$out_dir))
-}
-
-# Function to ensure PhantomJS is installed in a designated directory
-ensure_phantomjs_installed <- function(temp_dir = "/FMT/Temp_dir/") {
-  if (!dir.exists(temp_dir)) {
-    dir.create(temp_dir, showWarnings = FALSE)
-  }
-  Sys.setenv(TMPDIR = temp_dir)
-  
-  if (!webshot::is_phantomjs_installed()) {
-    webshot::install_phantomjs()
-  }
 }
 
 create_directories <- function(data_dir, save_dir) {
