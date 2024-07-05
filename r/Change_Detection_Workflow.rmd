@@ -23,39 +23,39 @@ These scripts will conenct the class, the functions and the global variables to 
 
 ```{r , include=FALSE}
 # Source the required scripts
-source("app/global.R")
+
+source("global.R")
+source("server.R")
 source("r/functions.R")
-source("r/spatial_obj.R")
+source("r/spatial_container.R")
+source("r/meta_obj.R")
 ```
 
-## Class Structure of the Point Cloud Object
+#Methods
 
- The Class structure for the point cloud object can hold 
- a df, las, CHM (SpatRaster), DTM (SpatRaster), mask (sfc), filepath (character), filename (character)
-
-  spatial_obj <- setRefClass(
-   "point_cloud_obj",
-    fields = list(
-     data = "data.frame",
-     LPC = "LAS",
-     CHM = "SpatRaster",
-     DTM = "SpatRaster",
-     mask = "sfc",
-     filepath =  "character",
-     filename = "character"))
-
-## Reading the Class Methods
+# to_dtm()        save_las()
+# to_chm()        save_dtm()
+# save_mask()     save_chm()
+# save_pc()
 
 
-The following function `spatial_obj$methods()` shows the methods of th spatial_obj class, which are inherited functions tof that object
+#Functions
+
+# process_raster(source, target, mask_layer)
+# CHM_diff_classify(earlier, later)
+# raster_stats(raster)
+# mask_pc()
+
+
+The following function `spatial_container$methods()` shows the methods of th spatial_container class, which are inherited functions tof that object
 
 ```{r, echo=FALSE}
-spatial_obj$methods()
+spatial_container$methods()
 ```
 
 ## Custom methods
 
-to call a method use `spatial_obj$method_name()`
+to call a method use `spatial_container$method_name()`
 
 initialize(spatial_obj, or .rdata),  
 save_chm(spatial_obj$CHM, filepath) saves the currently stored CHM to the filepath,
@@ -71,6 +71,14 @@ get_meta(), saves the current meta to an external variable, this is required for
 get_lpc(),  saves the current LPC to an external variable        
 
 
+## Creating the metadata object to read drive
+```{r, echo=FALSE} 
+dir <- "./data/"
+mo_dir <- mo$new(dir)
+print(mo_dir$metadata)
+```
+
+
 ## Running the classes and initialising the object
 
 The object needs to be created and initialised before it can be used. It can read either a `.rdata`, `.laz`, `.las`, or `.xyz `file.
@@ -79,36 +87,38 @@ On initialisation, an LPC object will be created regardless of the input format
 to initialise the object use `spatial_obj$new(filepath)`
 
 ```{r, echo=FALSE} 
-path_14 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2014_decimate.laz"
-pc_14 <- spatial_obj$new(path_14)
+# read in the first point cloud
+pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
 
-path_19 <- "C:/Users/User/Forest_Analyser_5000/data/TTP/LAS/Clipped/TTP_2019_decimate.laz"
-pc_19 <- spatial_obj$new(path_19)
+# read in the second point cloud and change the crs
+pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
+pc_19$set_crs(32617)
 ```
 
-## Functions built with the class to help the processing of Point Cloud Data, Rasters, and Shapefiles
-
-process_raster(source, target, mask_layer, method = "bilinear") - This function will align rasters and resample them to the target raster. It will also mask the target raster with the mask_layer
-CHM_diff_classify(earlier, later) - This will do the differencencing of the CHMs and reclassify them
-raster_stats(raster) this will produce statistcs about the chm diff raster, it only produces area per group for now
-plot_stats(stats) plots the stats of the raster to the 2D plot consol
-is_empty(raster) checks to see if the raster is empty and returns a boolean
-is_empty_sfc(sfc)   checks to see if the sfc is empty and returns a boolean
-mask_pc(pc)
-
+## Conduct the ICP registration
 
 ```{r, echo=FALSE}
 
+ # Use the conda environment
+reticulate::use_condaenv("fmt_env", required = TRUE)
 
+# Source the Python script
+icp_module <- paste0(getwd(), "/py/icp_pdal.py")
 
+reticulate::source_python(icp_module)
+        
+# Create instance of the ICP class
+icp_aligner <- pdal_icp(pc_14$filepath, pc_19filepath)
 
+# Call the align method
+aligned_file_path <- icp_aligner$align()
 
-
-
+# Process the source point cloud
+pc_14 <- spatial_container$new(as.character(aligned_file_path))
+pc_14$set_crs(32617)
 ```
 
 ```
-
 
 ## The Tight Hull mask
 
@@ -134,14 +144,10 @@ The resolution is specified in the units of the point cloud data.
 
 ```{r, echo=FALSE} 
 pc_14$to_dtm(1)
+
 pc_19$to_dtm(1)
 
 plot(pc_14$DTM)
-```
-
-```{r, echo=FALSE}
-
-pc_14$DTM
 ```
 
 
@@ -154,14 +160,11 @@ The CHM requires the DTM, where it will be used to subtract the elevations from 
 
 ```{r, echo=FALSE}
 pc_14$to_chm(1)
+
 pc_19$to_chm(1)
 
-plot(pc_14$CHM)
+plot(pc_19$CHM)
 
-```
-
-```{r, echo=FALSE}
-pc_14$CHM
 ```
 
 
@@ -172,21 +175,29 @@ The `align_rasters()` function from the `raster` package is used to align the ra
 
 
 ```{r, echo=FALSE} 
-
+aligned_chm <- process_raster(pc_14$CHM_raw, pc_19$CHM_raw, source_mask = pc_14$mask, target_mask = pc_19$mask, method = "bilinear")
+source_chm <- aligned_chm[[1]]
+target_chm <- aligned_chm[[2]]
+chm_mask <- aligned_chm[[3]]
 
 ```
 
-```{r, echo=FALSE} 
-```
+## Displaying the results to the change detection plot
 
 ```{r, echo=FALSE} 
+# Function to generate CHM and classify the differences
+
+chm_diff_test <- CHM_diff_classify(source_chm, target_chm)
+
+plot_stats(chm_diff_test)
+
 ```
 
-```{r, echo=FALSE} 
-```
+## Displaying the results to the leaflet map
 
 ```{r, echo=FALSE} 
-```
 
-```{r, echo=FALSE} 
+# Display the outputs/. 
+
+displayMap(pc_14$DTM,pc_14$CHM, chm_diff_test, chm_mask)
 ```
