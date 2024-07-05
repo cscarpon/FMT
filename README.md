@@ -83,6 +83,6 @@ Windows requires that you set `PATH` variables to let Windows know where a progr
 
 5. This line will tell Windows to download the r environment `Rscript.exe r\initialize_project.R`
 
-6. Run the app : `Rscript.exe `app.R`
+6. Run the app : `Rscript.exe app.R`
 
 ``
