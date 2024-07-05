@@ -27,9 +27,6 @@
     # Call the function to create directories if they don't exist
     create_directories(data_default, save_drive)
     
-    # Ensure PhantomJS is installed
-    ensure_phantomjs_installed()
-    
     rv <- reactiveValues(console_output = list(messages = "Welcome to FMT"))
     
     output$console_output <- renderUI({
@@ -343,17 +340,16 @@
     
     ##Plot Webmap
 
-     observeEvent(input$plot_leaf, {
-       output$leafletmap <- renderLeaflet({
-         req(rv$sc1)
-         displayMap(rv$sc1$DTM, rv$source_chm, rv$classified_diff, rv$union_mask)
+    observeEvent(input$plot_leaf, {
+      tryCatch({
+        output$leafletmap <- renderLeaflet({
+          displayMap(rv$sc1$DTM, rv$source_chm, rv$classified_diff, rv$union_mask)
+        })
+      }, error = function(e) {
+        print(paste("An error occurred while plotting the map:", e$message))
       })
     })
     
-    # output$leafletmap <- renderLeaflet({
-    #   req(rv$sc1)
-    #   initial_map(rv$sc1$mask)
-    # })
     
     observeEvent(input$leafletmap_groups, {
       legend <- NULL
@@ -398,7 +394,6 @@
   })
     
  #Saving the xyz from the PCC
-
  
   observeEvent(input$save_las, {
     req(selected_las())  
@@ -468,25 +463,6 @@
     path <- paste0(out_dir, "/", final_name, "_mask.shp")
     selected_las()$save_mask(path)
     print(paste("Mask saved to:", path))
-  })
-  
-  observeEvent(input$saveMap, {
-    req(rv$sc1)
-    
-    map <- leafletProxy("leafletmap")
-    
-    output_dir <- rv$out_dir
-    
-    out_num <- as.character(rv$out_num)
-    
-    mapshot_file <- normalizePath(file.path(output_dir, paste0("leaflet_map_",out_num, ".png")))
-    print(paste("Mapshot file path:", mapshot_file))
-    
-    mapview::mapshot(map, file = mapshot_file)
-    print("Mapshot taken")
-    
-    updateOutNum()
-    print("Output number updated")
   })
   
   # Clean up uploaded files when the session ends, excluding base files
