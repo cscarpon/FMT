@@ -7,16 +7,6 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Notes to Self
-
-needed shortcuts for vscode : press Ctrl+Shift+V in the editor. You can view the preview side-by-side (Ctrl+K V) 
-Ctrl+Shift+P Open Preview to the Side
-
-```{r}
-
-
-getwd()
-```
 
 ## Running the dependancy scripts
 
