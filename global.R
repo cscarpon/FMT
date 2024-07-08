@@ -12,8 +12,7 @@ library(leaflet) # used for interactive map
 library(leaflet.extras) # used for dynamic legends
 library(htmlwidgets)
 library(reticulate) # python in r
-library(mapview) # used for interactive maps
-library(webshot) # used for saving maps
+library(zip) # zip files
 
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)
