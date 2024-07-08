@@ -31,13 +31,13 @@ pc_14$set_crs(32617)
 pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
 pc_19$set_crs(32617)
 
-# Use the conda environment
-reticulate::use_condaenv("fmt_env", required = TRUE)
-
 # Source the Python script
 icp_module <- paste0(getwd(), "/py/icp_pdal.py")
 
 reticulate::source_python(icp_module)
+
+reticulate::use_condaenv("fmt_conda", required = TRUE)
+
 
 # Create instance of the ICP class
 icp_aligner <- pdal_icp(pc_14$filepath, pc_19$filepath)

@@ -82,7 +82,7 @@
     ##Server logic to load source PC from Directory
     observeEvent(input$confirm, {
       req(rv$metadata)  # Ensure metadata is loaded
-      
+      a
       # Filter for .laz files
       laz_names <- rv$metadata %>%
         dplyr::filter(grepl("\\.laz$ || \\.las$", file_path)) %>%
@@ -94,6 +94,8 @@
     })
     
     observeEvent(input$PC_confirm, {
+      
+      showModal(modalDialog("Initializing LAS and creating masks", footer=NULL))
       # Ensure the selections are made
       req(input$selected_source, input$selected_target, rv$metadata)
       
@@ -117,8 +119,7 @@
       # Retrieve the file paths from the selections
       las_path1 <- normalizePath(source_path, winslash = "/")
       las_path2 <- normalizePath(target_path, winslash = "/")
-      
-      add_message("Initializing the Source point cloud", rv)
+      showModal(modalDialog("Initializing LAS and creating mask for PC 1", footer=NULL))
       
       # Process the source point cloud
       if (!is.null(las_path1)) {
@@ -129,6 +130,8 @@
       
       new_message <- capture_output(print(rv$sc1$LPC))
       add_message(new_message, rv)
+      
+      showModal(modalDialog("Initializing LAS and creating mask for PC 2", footer = NULL))
       
       add_message("Initializing the Target point cloud", rv)
       
@@ -142,6 +145,8 @@
       add_message(new_message, rv)
       
       updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
+      
+      removeModal()
 
     })
     
@@ -152,8 +157,7 @@
       
       add_message("Running ICP on Source and Target", rv)
       
-      # Use the conda environment
-      reticulate::use_condaenv("fmt_env", required = TRUE)
+      showModal(modalDialog("Running ICP on Source and Target", footer= NULL))
       
       # Source the Python script
       icp_module <- paste0(getwd(), "/py/icp_pdal.py")
@@ -185,6 +189,7 @@
         new_message <- paste0("An error occurred: ", e$message)
         add_message(new_message, rv)
       })
+        removeModal()
     })
 
     #Building the DTM for the first PC with Text Prompts
@@ -396,7 +401,7 @@
  #Saving the xyz from the PCC
  
   observeEvent(input$save_las, {
-    req(selected_las())  
+    req(selected_las(), rv$out_dir)  
     las <- selected_las()  
     
     if (!is.null(las$filepath)) {
@@ -404,11 +409,10 @@
       filename <- basename(filepath)
       filesplit <- strsplit(filename, "\\.")[[1]]
       final_name <- filesplit[1]
-      out_dir <- selected_las()$out_dir
+      out_dir <- rv$out_dir
       path <- paste0(out_dir, "/", final_name, ".laz")
       las$save_las(path)
       print(paste("LAS file saved to:", path))
-      updateOutNum()
     } else {
       print("No file path found for saving LAS.")
     }
@@ -417,58 +421,71 @@
   observeEvent(input$save_dtm, {
     
     # Ensure selected_las() is not NULL
-    req(selected_las())  
+    req(selected_las(), rv$out_dir)
     
     filepath <- selected_las()$filepath
     filename <- basename(filepath)
     filesplit <- strsplit(filename, "\\.")[[1]]
     final_name <- filesplit[1]
-    out_dir <- selected_las()$out_dir
+    out_dir <- rv$out_dir
     path <- paste0(out_dir, "/", final_name, "_DTM.tif")
     
     selected_las()$save_dtm(path)
     print(paste("DTM file saved to:", path))
-    updateOutNum()
   })
  
   observeEvent(input$save_chm, {
     
     # Ensure selected_las() is not NULL
-    req(selected_las())  
+    req(selected_las(), rv$out_dir)  
     
     filepath <- selected_las()$filepath
     filename <- basename(filepath)
     filesplit <- strsplit(filename, "\\.")[[1]]
     final_name <- filesplit[1]
-    out_dir <- selected_las()$out_dir
+    out_dir <- rv$out_dir
     path <- paste0(out_dir, "/", final_name, "_CHM.tif")
     
     selected_las()$save_chm(path)
     print(paste("CHM file saved to:", path))
-    updateOutNum()
   })
  
   observeEvent(input$save_mask, {
     
     # Ensure selected_las() is not NULL
     
-    req(selected_las())  
+    req(selected_las(), rv$out_dir)  
     
     filepath <- selected_las()$filepath
     filename <- basename(filepath)
     filesplit <- strsplit(filename, "\\.")[[1]]
     final_name <- filesplit[1]
-    out_dir <- selected_las()$out_dir
+    out_dir <- rv$out_dir
     
     path <- paste0(out_dir, "/", final_name, "_mask.shp")
     selected_las()$save_mask(path)
     print(paste("Mask saved to:", path))
   })
   
+  # Download handler
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("all_files", Sys.Date(), ".zip", sep = "")
+    },
+    content = function(file) {
+      req(rv$out_dir)
+      save_dir <- rv$out_dir
+      file_zip <- list.files(save_dir, full.names = TRUE)
+      zip::zipr(file, file_zip)
+    },
+    contentType = "application/zip"
+  )
+  
   # Clean up uploaded files when the session ends, excluding base files
   session$onSessionEnded(function() {
+    req(rv$out_dir)
     base_files <- c("TTP_2015.laz", "TTP_2019.laz")
-    uploaded_files <- list.files(data_default, full.names = TRUE)
+    uploaded_files <- list.files(rv$out_dir, full.names = TRUE)
     lapply(uploaded_files, function(file) {
       if (file.exists(file) && !basename(file) %in% base_files) {
         file.remove(file)
