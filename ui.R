@@ -34,7 +34,7 @@ ui <- fluidPage(
         column(6, actionButton("save_dtm", "Save DTM", width = "100%", title = "Save the current DTM")),
         column(6, actionButton("save_chm", "Save CHM", width = "100%", title = "Save the current CHM")),
         column(6, actionButton("save_mask", "Save mask", width = "100%", title = "Save the current mask")),
-        column(6, actionButton("saveMap", "Save Map", width = "100%", title = "Save the current map"))  
+        column(6, downloadButton("downloadData", "Save data", width = "100%", title = "Save all the data in the out directory"))
       ),
       tags$hr(),
       h4("Plotting"),
