@@ -7,7 +7,7 @@ spatial_container <- setRefClass(
     CHM_raw = "SpatRaster",
     DTM = "SpatRaster",
     DTM_raw = "SpatRaster",
-    mask = "sfc",
+    mask = "sf",
     filepath =  "character",
     filename = "character"
   ),
