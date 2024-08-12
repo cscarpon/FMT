@@ -227,32 +227,55 @@ mask_pc <- function(pc) {
     } else {
       pc_ground <- lidR::filter_poi(pc, Classification == 2)
     }
-    coords <- sf::st_as_sf(pc_ground@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
-
-    # Extract the geometry from the sf object
-    geom <- sf::st_geometry(coords)
-
-    # Create a terra SpatRaster with the same extent and resolution
-    ext <- terra::ext(sf::st_bbox(coords))
-    r <- terra::rast(ext, resolution = 1) # Adjust resolution as needed
+    coords_sf <- sf::st_as_sf(pc_ground@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
     
-    # Convert your sf object to SpatVector for terra
-    spatvect <- terra::vect(coords)
+    # Step 1: Create a 1m grid over the extent of the points
+    bbox <- sf::st_bbox(coords_sf)
+    grid <- sf::st_make_grid(sf::st_as_sfc(bbox), cellsize = 1, what = "centers")
     
-    # Rasterize
-    r <- terra::rasterize(spatvect, r, field = 1) # Assuming you want to burn value 1
+    # Step 2: Snap points to the nearest grid cell
+    grid_sf <- sf::st_as_sf(grid)
+    coords_sf$grid_id <- sf::st_nearest_feature(coords_sf, grid_sf)
     
-    # Convert raster to points, similar to rasterToPoints
-    pts <- terra::as.points(r, values=TRUE)
+    # Step 3: Remove duplicate points within the same grid cell
+    unique_coords_sf <- coords_sf %>%
+      group_by(grid_id) %>%
+      slice(1) %>%
+      ungroup()
     
-    # Convert points to sf object
-    polygons_sf <- sf::st_as_sf(pts, coords = c("x", "y"), crs = lidR::projection(pc))
-    poly_buff <- sf::st_buffer(polygons_sf, 25)
-    poly_union <- sf::st_union(poly_buff)
-    poly_union <- sf::st_buffer(poly_union, -24)
-    sf::st_crs(poly_union) <- lidR::projection(pc)
+    # Step 4: Buffer the points by 3 meters
+    buffered_points <- sf::st_buffer(unique_coords_sf, dist = 3)
     
-    return(poly_union)
+    # Step 5: Union the buffered geometries into a single geometry
+    unioned_buffer <- sf::st_union(buffered_points)
+    
+    # Step 6: Apply a negative buffer (shrink by 3 meters)
+    final_polygon <- sf::st_buffer(unioned_buffer, dist = -3, endCapStyle = "SQUARE")
+    
+    # Step 7: Ensure the polygon is valid
+    final_polygon <- sf::st_make_valid(final_polygon)
+    
+    # Step 8: Remove holes and simplify the final polygon
+    # Initialize an empty list to store the results
+    final_result <- list()
+    
+    # Iterate over each geometry in final_polygon
+    for (i in seq_along(final_polygon)) {
+      # Remove holes
+      no_holes <- nngeo::st_remove_holes(final_polygon[i])
+      # Append to the final result list
+      final_result[[i]] <- no_holes
+    }
+    
+    
+    # Combine all the results into a single sf object
+    final_sf <- do.call(sf::st_sfc, final_result)
+    final_sf <- rmapshaper::ms_simplify(final_sf, keep = 0.03, weighting = 2.0, keep_shapes = TRUE)
+    final_sf <- sf::st_as_sf(final_sf)
+    
+    sf::st_crs(final_sf) <- lidR::projection(pc)
+    
+    return(final_sf)
 }
 
 displayMap <- function(dtm, chm, chm_diff, mask) {
