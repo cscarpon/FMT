@@ -4,6 +4,8 @@ source("r/functions.R")
 source("r/spatial_container.R")
 source("r/meta_obj.R")
 
+#test
+
 #Methods
 
 # to_dtm()        save_las()
@@ -23,6 +25,7 @@ dir <- "./data/"
 mo_dir <- mo$new(dir)
 print(mo_dir$metadata)
 
+
 pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
 
 pc_14$set_crs(32617)
@@ -31,13 +34,19 @@ pc_14$set_crs(32617)
 pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
 pc_19$set_crs(32617)
 
+conda_create("EMT_conda", python = "3.9.13", packages = c("pdal", "numpy", "scipy"))
+
+#Activate conda environment
+reticulate::use_condaenv("EMT_conda", required = TRUE)
+reticulate::import("pdal")
+
+
+renv::use_python("C:/Users/cscar/anaconda3/envs/EMT_conda/python.exe")
+
 # Source the Python script
 icp_module <- paste0(getwd(), "/py/icp_pdal.py")
 
 reticulate::source_python(icp_module)
-
-reticulate::use_condaenv("fmt_conda", required = TRUE)
-
 
 # Create instance of the ICP class
 icp_aligner <- pdal_icp(pc_14$filepath, pc_19$filepath)
@@ -55,18 +64,24 @@ plot(pc_14$mask)
 
 #Generating the DTM and CHM
 
-pc_14$to_dtm(1)
+pc_14$to_dtm(0.5)
 
-pc_19$to_dtm(1)
+pc_19$to_dtm(0.5)
 
-pc_14$to_chm(1)
+pc_14$to_chm(0.5)
 
-pc_19$to_chm(1)
+pc_19$to_chm(0.5)
 
 plot(pc_19$CHM)
 
+
+
 #This function aligns the two rasters and returns aligned raster objects.
 aligned_chm <- process_raster(pc_14$CHM_raw, pc_19$CHM_raw, source_mask = pc_14$mask, target_mask = pc_19$mask, method = "bilinear")
+
+
+st_write(pc_14$mask, paste0(getwd(), "/Data/mask_2015.shp"))
+st_write(pc_19$mask, paste0(getwd(), "/Data/mask_2019.shp"))
 
 ################################################
 
