@@ -243,14 +243,16 @@ mask_pc <- function(pc) {
       slice(1) %>%
       ungroup()
     
-    # Step 4: Buffer the points by 3 meters
-    buffered_points <- sf::st_buffer(unique_coords_sf, dist = 3)
     
-    # Step 5: Union the buffered geometries into a single geometry
-    unioned_buffer <- sf::st_union(buffered_points)
     
-    # Step 6: Apply a negative buffer (shrink by 3 meters)
-    final_polygon <- sf::st_buffer(unioned_buffer, dist = -3, endCapStyle = "SQUARE")
+    # # Step 4: Buffer the points by 3 meters
+    # buffered_points <- sf::st_buffer(unique_coords_sf, dist = 5)
+    # 
+    # # Step 5: Union the buffered geometries into a single geometry
+    # unioned_buffer <- sf::st_union(buffered_points)
+    # 
+    # # Step 6: Apply a negative buffer (shrink by 3 meters)
+    # final_polygon <- sf::st_buffer(unioned_buffer, dist = -5, endCapStyle = "SQUARE")
     
     # Step 7: Ensure the polygon is valid
     final_polygon <- sf::st_make_valid(final_polygon)
