@@ -218,33 +218,33 @@ transform_polygon_crs <- function(source_polygon, target_polygon, crs) {
 mask_pc <- function(pc) {
     decimate <- lidR::decimate_points(pc, random(1))
 
-    # Check if there is a ground classification
-    if (!"2" %in% unique(pc$Classification)) {
-
-      # Classify ground
-      pc_decimated <- lidR::classify_ground(pc, csf())
-      pc_ground <- lidR::filter_poi(pc_decimated, Classification == 2)
-    } else {
-      pc_ground <- lidR::filter_poi(pc, Classification == 2)
-    }
-    coords_sf <- sf::st_as_sf(pc_ground@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
+    # # Check if there is a ground classification
+    # if (!"2" %in% unique(decimate$Classification)) {
+    # 
+    #   # Classify ground
+    #   pc_decimated <- lidR::classify_ground(decimate, csf())
+    #   pc_ground <- lidR::filter_poi(pc_decimated, Classification == 2)
+    # } else {
+    #   pc_ground <- lidR::filter_poi(decimate, Classification == 2)
+    # }
+    coords_sf <- sf::st_as_sf(decimate@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
     
-    # Step 1: Create a 1m grid over the extent of the points
-    bbox <- sf::st_bbox(coords_sf)
-    grid <- sf::st_make_grid(sf::st_as_sfc(bbox), cellsize = 1, what = "centers")
-    
-    # Step 2: Snap points to the nearest grid cell
-    grid_sf <- sf::st_as_sf(grid)
-    coords_sf$grid_id <- sf::st_nearest_feature(coords_sf, grid_sf)
-    
-    # Step 3: Remove duplicate points within the same grid cell
-    unique_coords_sf <- coords_sf %>%
-      group_by(grid_id) %>%
-      slice(1) %>%
-      ungroup()
+    # # Step 1: Create a 1m grid over the extent of the points
+    # bbox <- sf::st_bbox(coords_sf)
+    # grid <- sf::st_make_grid(sf::st_as_sfc(bbox), cellsize = 1, what = "squares")
+    # 
+    # # Step 2: Snap points to the nearest grid cell
+    # grid_sf <- sf::st_as_sf(grid)
+    # coords_sf$grid_id <- sf::st_nearest_feature(coords_sf, grid_sf)
+    # 
+    # # Step 3: Remove duplicate points within the same grid cell
+    # unique_coords_sf <- coords_sf %>%
+    #   group_by(grid_id) %>%
+    #   slice(1) %>%
+    #   ungroup()
     
     # Step 4: Buffer the points by 3 meters
-    buffered_points <- sf::st_buffer(unique_coords_sf, dist = 3)
+    buffered_points <- sf::st_buffer(coords_sf, dist = 3)
     
     # Step 5: Union the buffered geometries into a single geometry
     unioned_buffer <- sf::st_union(buffered_points)
@@ -266,7 +266,6 @@ mask_pc <- function(pc) {
       # Append to the final result list
       final_result[[i]] <- no_holes
     }
-    
     
     # Combine all the results into a single sf object
     final_sf <- do.call(sf::st_sfc, final_result)

@@ -4,6 +4,9 @@ source("r/functions.R")
 source("r/spatial_container.R")
 source("r/meta_obj.R")
 
+get_lidr_threads()
+set_lidr_threads(10)
+
 #test
 
 #Methods
@@ -21,10 +24,10 @@ source("r/meta_obj.R")
 # mask_pc()
 
 
-dir <- "./data/"
+# dir <- "./data/"
+dir <- "G:/Thesis/Sunnybrook/DataDir/"
 mo_dir <- mo$new(dir)
 print(mo_dir$metadata)
-
 
 pc_14 <- spatial_container$new(mo_dir$metadata$file_path[1])
 
@@ -34,12 +37,15 @@ pc_14$set_crs(32617)
 pc_19 <- spatial_container$new(mo_dir$metadata$file_path[2])
 pc_19$set_crs(32617)
 
+
+writeLAS(pc_14$LPC, "G:/Thesis/Sunnybrook/DataDir/pc_14.laz")
+writeLAS(pc_19$LPC, "G:/Thesis/Sunnybrook/DataDir/pc_19.laz")
+
 conda_create("EMT_conda", python = "3.9.13", packages = c("pdal", "numpy", "scipy"))
 
 #Activate conda environment
 reticulate::use_condaenv("EMT_conda", required = TRUE)
 reticulate::import("pdal")
-
 
 renv::use_python("C:/Users/cscar/anaconda3/envs/EMT_conda/python.exe")
 
@@ -64,13 +70,13 @@ plot(pc_14$mask)
 
 #Generating the DTM and CHM
 
-pc_14$to_dtm(0.5)
+pc_14$to_dtm(1)
 
-pc_19$to_dtm(0.5)
+pc_19$to_dtm(1)
 
-pc_14$to_chm(0.5)
+pc_14$to_chm(1)
 
-pc_19$to_chm(0.5)
+pc_19$to_chm(1)
 
 plot(pc_19$CHM)
 
