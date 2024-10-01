@@ -60,12 +60,9 @@ class pdal_icp:
         base, ext = os.path.splitext(source_path)
         return f"{base}_aligned{ext}"
     
-    
-    
-
 # if __name__ == "__main__":
-#     source_path = "C:/Users/cscar/FMT/data/TTP_2015.laz"
-#     target_path = "C:/Users/cscar/FMT/data/TTP_2019_32617.laz"
+#     source_path = "G:/Thesis/Sunnybrook/DataDir/pc_14.laz"
+#     target_path = "G:/Thesis/Sunnybrook/DataDir/pc_19.laz"
     
 #     icp_aligner = pdal_icp(source_path, target_path)
 #     aligned_file = icp_aligner.align()
@@ -77,13 +74,13 @@ class pdal_icp:
 
 
 
-# # Run the alignment
-# source_path = "C:/Users/cscar/FMT/data/TTP_2015.laz"
-# target_path = "C:/Users/cscar/FMT/data/TTP_2019.laz"
-# icp_aligner = pdal_icp(source_path, target_path)
-# aligned_file = icp_aligner.align()
+# Run the alignment
+source_path = "G:/Thesis/Sunnybrook/DataDir/pc_14.laz"
+target_path = "G:/Thesis/Sunnybrook/DataDir/pc_19.laz"
+icp_aligner = pdal_icp(source_path, target_path)
+aligned_file = icp_aligner.align()
 
-# if aligned_file:
-#     print(f"Aligned file created at: {aligned_file}")
-# else:
-#     print("Alignment failed.")
+if aligned_file:
+    print(f"Aligned file created at: {aligned_file}")
+else:
+    print("Alignment failed.")
