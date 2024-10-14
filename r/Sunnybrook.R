@@ -1,16 +1,420 @@
-library(lidR)
-library(terra)
-library(sf)
+source("global.R")
+source("server.R")
+source("r/functions.R")
+source("r/spatial_container.R")
+source("r/meta_obj.R")
+
+set_lidr_threads(10)
+
 
 sunny_bound <- st_read("G:/EMC/Projects/Sunnybrooke/Data/Boundary/Sunnybrook.shp")
 sunny_bound <- st_transform(sunny_bound, crs = 26917)
 
+
+buildings <- sf::st_read("F:/Thesis/Sunnybrook/Points/SB_Clip.shp")
+buildings <- sf::st_transform(buildings, crs = 26917)
+
+
 # Lidar 
 
 
-# laz15 <- readLAS("G:/Thesis/Sunnybrook/DataDir/pc_14_aligned.laz")
-# laz19 <- readLAS("G:/Thesis/Sunnybrook/DataDir/pc_19_aligned.laz")
+pc_14A <- count_time(spatial_container$new("C:/Users/cscar/FMT/data/Sunnybrook_15_aligned.laz"))
+plot(pc_14A$index)
 
+pc_14A$set_crs(32617)
+
+pc_mask <- count_time(mask_pc(pc_14A$LPC))
+pc_14A$mask <- pc_mask
+
+pc_19 <- count_time(spatial_container$new("C:/Users/cscar/FMT/data/Sunnybrook_19.laz"))
+plot(pc_19$index)
+
+pc_mask_19 <- count_time(mask_pc(pc_19$LPC))
+pc_19$mask <- pc_mask_19
+
+buildings <- st_read("C:/Users/cscar/FMT/data/SB_Buildings.shp")
+
+pc_19_clean <- count_time(noise_filter_buildings(pc_19$LPC, pc_19$mask, buildings,  k_sor1 = 5, m_sor1 = 2, k_sor2 = 15, m_sor2 = 4))
+
+writeLAS(pc_19_clean , "C:/Users/cscar/FMT/data/Sunnybrook_19_clean.laz")
+
+laz15_denoise <- count_time(noise_filter_buildings(pc_14A$LPC, pc_14A$mask, buildings,  k_sor1 = 5, m_sor1 = 2, k_sor2 = 15, m_sor2 = 4))
+
+writeLAS(laz15_denoise, "C:/Users/cscar/FMT/data/Sunnybrook_15_clean.laz")
+
+plot(laz15_denoise)
+
+renv::use_python("C:/Users/cscar/anaconda3/envs/EMT_conda/python.exe")
+
+# Source the Python script
+icp_module <- paste0(getwd(), "/py/icp_pdal.py")
+
+reticulate::source_python(icp_module)
+
+# Create instance of the ICP class
+icp_aligner <- pdal_icp("C:/Users/cscar/FMT/data/Sunnybrook_15_clean.laz", "C:/Users/cscar/FMT/data/Sunnybrook_19_clean.laz")
+
+# Call the align method
+aligned_file_path <- icp_aligner$align()
+
+# Process the source point cloud
+pc_14A <- spatial_container$new(as.character(aligned_file_path))
+pc_14A$set_crs(32617)
+
+lidR::writeLAS(pc_14A$LPC, "C:/Users/cscar/FMT/data/Sunnybrook_15_clean_aligned.laz")
+
+
+
+
+# Making a negative of the mask by cutting out the building footprints
+
+
+laz19 <- readLAS("F:/Thesis/Sunnybrook/DataDir/Sunnybrook_19.laz")
+
+laz19 <- st_transform(laz19, crs = 26917)
+
+run_noise_classification_fixed <- function(las, k_range = 1:30, fixed_m = 4, res_range = 1:5, fixed_n = 10) {
+  
+  # Step 1: Read and transform the LAS file
+  
+  # Initialize lists to store cleaned LAS files for both `sor` and `ivf` iterations
+  sor_clean_list <- list()
+  ivf_clean_list <- list()
+  
+  # Step 2: Loop over k for the `sor` function (m stays fixed)
+  for (k in k_range) {
+    # Apply the `sor` noise classification with fixed m
+    las_sor <- classify_noise(las, sor(k = k, m = fixed_m))
+    # Clean the LAS by filtering out the noise (Classification != 18)
+    las_sor_clean <- filter_poi(las_sor, Classification != 18)
+    # Save the result in the list
+    sor_clean_list[[paste0("sor_k", k, "_m", fixed_m)]] <- las_sor_clean
+  }
+  
+  # Step 3: Loop over res for the `ivf` function (n stays fixed)
+  for (res in res_range) {
+    # Apply the `ivf` noise classification with fixed n
+    las_ivf <- classify_noise(las, ivf(res = res, n = fixed_n))
+    # Clean the LAS by filtering out the noise (Classification != 18)
+    las_ivf_clean <- filter_poi(las_ivf, Classification != 18)
+    # Save the result in the list
+    ivf_clean_list[[paste0("ivf_res", res, "_n", fixed_n)]] <- las_ivf_clean
+  }
+  
+  # Return a list containing all cleaned LAS point clouds from `sor` and `ivf`
+  return(list(sor_clean = sor_clean_list, ivf_clean = ivf_clean_list))
+}
+
+# Usage example
+las_file <- "F:/Thesis/Sunnybrook/DataDir/Sunnybrook_19.laz"
+result <- run_noise_classification_fixed(laz19, k_range = 1:30, fixed_m = 4, res_range = 1:5, fixed_n = 10)
+
+result2 <- run_noise_classification_fixed(laz19, k_range = 1:30, fixed_m = 10, res_range = 1:5, fixed_n = 15)
+
+# Accessing a specific cleaned LAS point cloud from the results
+sor_result_k5_m4 <- result$sor_clean[["sor_k5_m4"]]
+ivf_result_res2_n15 <- result$ivf_clean[["ivf_res2_n15"]]
+
+plot(result$sor_clean[[1]])
+plot(result$sor_clean[[5]])
+plot(result$sor_clean[[10]])
+plot(result$sor_clean[[15]])
+plot(result$sor_clean[[20]])
+plot(result$sor_clean[[25]])
+plot(result$sor_clean[[30]])
+
+plot(result$ivf_clean[[1]])
+plot(result$ivf_clean[[5]])
+
+
+plot(result2$sor_clean[[1]])
+plot(result2$sor_clean[[5]])
+plot(result2$sor_clean[[10]])
+plot(result2$sor_clean[[15]])
+plot(result2$sor_clean[[20]])
+plot(result2$sor_clean[[25]])
+plot(result2$sor_clean[[30]])
+
+plot(result2$ivf_clean[[1]])
+plot(result2$ivf_clean[[5]])
+
+
+las19_clean <- filter_poi(laz19, Classification != 18)  # Noise points are typically classified as 18
+
+# Step 1: Classify ground points using the progressive morphological filter (PMF)
+las_clean_19 <- classify_ground(las19_clean, algorithm = pmf(ws = 2, th = 0.2))
+
+# Step 2: Filter low points (for example, points below 120m)
+las_clean_19 <- filter_poi(las_clean_19, Z > 120)
+
+las_19 <-  clip_roi(las_clean_19, buildings)
+
+# Step 5: Segment transmission cables (linear features)
+las_cable19 <- segment_shapes(las_19, shp_line(k = 5, th1 = 30), "Cables")
+las_no_cable19 <- filter_poi(las_cable19, Cables == "FALSE")
+plot(las_cable19, color = "Cables")
+plot(las_no_cable19)
+
+
+# Step 6: Segment vertical poles (using vertical line segmentation)
+las_poles19 <- segment_shapes(las_no_cable19, shp_vline(th1 = 5, k = 4), "Poles")
+las_no_poles19 <- filter_poi(las_poles19, Poles == "FALSE")
+plot(las_poles19, color = "Poles")
+plot(las_no_poles19)
+
+
+laz19_noiseless <- classify_noise(las_no_poles19, sor(k = 4, m = 4))
+
+las19_noiseless_clean <- filter_poi(laz19_noiseless, Classification != 18)  # Noise points are typically classified as 18
+plot(las19_noiseless_clean)
+
+writeLAS(las19_noiseless_clean, "F:/Thesis/Sunnybrook/DataDir/Sunnybrook_19_clean.laz")
+
+
+
+
+# Step 4: Segment walls (vertical surfaces)
+las_walls19 <- segment_shapes(las_no_cable19, shp_plane(k = 40, th1 = 10, th2 = 85), "Walls")
+plot(las_walls19, color = "Walls")
+
+las_no_walls <- filter_poi(las_walls, Walls == "FALSE")
+plot(las_no_walls)
+
+# Segment horizontal roofs (using low slope threshold)
+las_roof <- segment_shapes(las_no_walls, shp_plane(k = 5, th1 = 10, th2 = 5), "Roofs")
+las_no_roof <- filter_poi(las_roof, Roofs == "FALSE")
+plot(las_no_roof)
+
+plot(las_19)
+
+# Filtering to remove buildings
+
+
+# Step 3: Filter out ground points (typically classified as 2)
+las_no_ground <- filter_poi(las_clean_15, Classification != 2)
+
+# Step 4: Segment walls (vertical surfaces)
+las_walls <- segment_shapes(las_no_ground, shp_plane(k = 40, th1 = 10, th2 = 85), "Walls")
+las_no_walls <- filter_poi(las_walls, Walls == "FALSE")
+plot(las_no_walls)
+
+# Segment horizontal roofs (using low slope threshold)
+las_roof <- segment_shapes(las_no_walls, shp_plane(k = 5, th1 = 10, th2 = 5), "Roofs")
+las_no_roof <- filter_poi(las_roof, Roofs == "FALSE")
+plot(las_no_roof)
+
+# Step 5: Segment transmission cables (linear features)
+las_cable <- segment_shapes(las_no_roof, shp_line(k = 5, th1 = 30), "Cables")
+las_no_cable <- filter_poi(las_cable, Cables == "FALSE")
+plot(las_cable, color = "Cables")
+plot(las_no_cable)
+
+
+# Step 6: Segment vertical poles (using vertical line segmentation)
+las_poles <- segment_shapes(las_no_cable, shp_vline(th1 = 5, k = 4), "Poles")
+las_no_poles <- filter_poi(las_poles, Poles == "FALSE")
+plot(las_poles, color = "Poles")
+plot(las_no_poles)
+
+
+# Segment additional flat structures like terraces or other features
+las_flat_structures <- segment_shapes(las_no_poles, shp_hline(k = 5, th1 = 5), "FlatStructures")
+las_no_flat_structures <- filter_poi(las_flat_structures, FlatStructures == "FALSE")
+plot(las_no_flat_structures)
+
+
+# Step 4: Segment walls (vertical surfaces)
+las_extra <- segment_shapes(las_no_flat_structures, shp_line(k = 5, th1 = 10), "Extra")
+las_no_extra <- filter_poi(las_extra, Extra == "FALSE")
+plot(las_no_extra)
+
+# Classify noise (e.g., isolated points) and filter them out
+las_clean <- classify_noise(las_no_extra, sor(k = 5, m = 2))
+las_no_noise <- filter_poi(las_clean, Classification != 18)  # Noise is typically classified as 18
+
+
+# Create extent from the last object
+box_test <- st_as_sfc(st_bbox(las_no_noise), crs = 32617)
+
+# Create a grid with a specified cell size
+
+grid <- st_make_grid(box_test, cellsize = c(300, 300), what = "polygons")
+
+library(lmom)
+
+
+cloud_metrics(las_no_noise , func = .stdmetrics)
+cloud_metrics(las_no_noise , func = ~as.list(lmom::samlmu(Z)))
+
+
+las_test <- las_no_noise
+
+# Initialize an empty list to store processed point clouds
+point_clouds <- list()
+
+# Loop through each grid cell, calculate metrics, run HDBSCAN, and store the results
+for (i in 1:length(grid)) {
+  start.time <- Sys.time()
+  print(paste("Processing grid cell", i, "of", length(grid)))
+  
+  # Add tryCatch block to handle empty or error cases
+  tryCatch({
+    # Clip the point cloud to the current grid cell
+    clip_las <- clip_roi(las_no_noise, grid[i])
+    
+    # If there are no points, skip to the next iteration
+    if (nrow(clip_las@data) > 0) {
+      
+      # Step 1: Calculate cloud metrics for Z and Intensity
+      cloud_metrics_result <- cloud_metrics(clip_las, func = ~c(
+        stdmetrics_z(Z),          # Standard metrics for Z (elevation)
+        stdmetrics_i(Intensity),  # Standard metrics for Intensity
+        as.list(lmom::samlmu(Z)),   # L-moments for Z
+        as.list(lmom::samlmu(Intensity)) # L-moments for Intensity
+      ))
+      
+      # Step 2: Extract metrics to use for clustering
+      z_mean <- cloud_metrics_result$zmean
+      z_sd <- cloud_metrics_result$zsd
+      z_q90 <- cloud_metrics_result$zq90
+      intensity_mean <- cloud_metrics_result$imean
+      intensity_sd <- cloud_metrics_result$isd
+      l1_z <- cloud_metrics_result$l_1  # L-moment 1 for Z
+      l2_z <- cloud_metrics_result$l_2  # L-moment 2 for Z
+      
+      # Step 3: Add metrics to the original point cloud for clustering
+      clip_las@data$Z_Mean <- z_mean
+      clip_las@data$Z_SD <- z_sd
+      clip_las@data$Z_Q90 <- z_q90
+      clip_las@data$Intensity_Mean <- intensity_mean
+      clip_las@data$Intensity_SD <- intensity_sd
+      clip_las@data$L1_Z <- l1_z
+      clip_las@data$L2_Z <- l2_z
+      
+      # Step 4: Prepare the data for HDBSCAN by combining XYZ and computed metrics
+      coords <- as.matrix(clip_las@data[, c("X", "Y", "Z", "Z_Mean", "Z_SD", "Z_Q90", 
+                                            "Intensity_Mean", "Intensity_SD", "L1_Z", "L2_Z")])
+      
+      # Step 5: Run HDBSCAN with the extended feature set
+      db <- hdbscan(coords, minPts = 30)
+      
+      # Step 6: Add cluster labels back to the point cloud for this grid cell
+      clip_las@data$Cluster <- db$cluster
+      
+      # Step 7: Append the processed point cloud to the list
+      point_clouds[[i]] <- clip_las
+      end.time <- Sys.time()
+      time.taken <- end.time - start.time
+      print(time.taken)
+      
+    } else {
+      print(paste("No points found in grid cell", i, "- skipping."))
+    }
+  }, error = function(e) {
+    # Handle errors (e.g., if grid cell is empty or any other issue)
+    print(paste("Error in grid cell", i, "- skipping."))
+  })
+}
+
+# Combine all processed point clouds back into one
+if (length(point_clouds) > 0) {
+  las_combined <- do.call(rbind, point_clouds)
+  
+  # Step 8: Visualize the final combined point cloud with clustering results
+  plot(las_combined, color = "Cluster")
+} else {
+  print("No valid point clouds were processed.")
+}
+
+point_list <- unlist(point_clouds)
+
+# Combine all processed point clouds back into one
+las_combined <- do.call(rbind, point_list)
+
+# Step 8: Visualize the final combined point cloud with clustering results
+plot(las_combined, color = "Cluster")
+
+writeLAS(las_combined, "F:/Thesis/Sunnybrook/DataDir/cluster15.laz")
+
+
+unique(las_combined@data$Cluster)
+
+
+library(dbscan)
+coords <- as.matrix(las_no_noise@data[, c("X", "Y", "Z")])
+
+kmeans_result <- kmeans(coords, centers = 10)
+
+# Add cluster labels back to the point cloud
+las_no_noise@data$Cluster <- kmeans_result$cluster
+
+# Visualize the clustering result
+plot(las_no_noise, color = "Cluster")
+
+# Apply DBSCAN clustering
+# You may need to tune eps and minPts based on your point cloud
+db <- dbscan(coords, eps = 2, minPts = 30)
+
+db <- hdbscan(coords, minPts = 30)
+
+# Add cluster labels back to the point cloud
+las_no_noise@data$Cluster <- db$cluster
+
+# Visualize the clusters
+plot(las_no_noise, color = "Cluster")
+
+
+las_clean <- filter_poi(las, Buildings == 0 & Poles == 0 & Walls == 0 & Bridges == 0 & TransmissionCables == 0)
+
+
+# Step 4: Segment bridges
+las <- segment_shapes(las, shp_plane(k = 10, th1 = 0.1, th2 = 10), "Bridges")
+
+# Visualize the final cleaned point cloud
+plot(las_clean)
+
+
+
+# Extract and visualize buildings (planar surfaces)
+buildings <- filter_poi(las, Classification == 6)  # 6 is the common classification code for buildings
+plot(buildings, color = "Classification")
+
+
+
+
+plot(las_clean_15)
+
+# Segment objects using shapes
+las <- lidR::segment_shapes(las_clean, algorithm = "shape", radius = 2, connectivity = 8)
+
+
+
+# Extract and visualize buildings, street poles, and transmission lines
+buildings <- filter_poi(las, Classification == 6)
+poles <- filter_poi(las, Classification == 15)
+transmission_lines <- filter_poi(las, Classification == 18)
+
+# Visualize buildings
+plot(buildings, color = "Classification")
+
+# Visualize poles
+plot(poles, color = "Classification")
+
+# Visualize transmission lines
+plot(transmission_lines, color = "Classification")
+
+
+laz19 <- readLAS("F:/Thesis/Sunnybrook/DataDir/pc_19.laz")
+laz_19 <- st_transform(laz19, crs = 26917)
+
+laz_15_clip <- lidR::clip_roi(laz_15, buildings)
+laz_19_clip <- lidR::clip_roi(laz_19, buildings)
+
+writeLAS(laz_15_clip, "F:/Thesis/Sunnybrook/DataDir/pc_14_aligned_clip.laz"))
+
+plot(laz_15_clip)
+
+writeLAS(laz_15_clip, )
 
 # none aligned source - 2015
 
@@ -20,7 +424,7 @@ end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
 
-
+plot(pc_14$mask)
 
 # Source - 2015
 start.time <- Sys.time()
@@ -28,7 +432,12 @@ pc_14A <- spatial_container$new("G:/Thesis/Sunnybrook/DataDir/pc_14_aligned.laz"
 end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
-pc_14$set_crs(32617)
+pc_14A$set_crs(32617)
+
+
+las <- decimate_points(pc_14A$LPC, random(1))
+
+writeLAS(las, "C:/Users/cscar/FMT/data/SB_decimate_15.laz")
 
 # path_19 <- "data/TTP_2019_decimate.laz"
 
@@ -44,7 +453,7 @@ pc_19$set_crs(32617)
 
 #Plotting the mask
 
-plot(pc_14$mask)
+plot(pc_14A$mask)
 plot(pc_19$mask)
 
 #Generating the DTM and CHM
@@ -61,13 +470,13 @@ writeRaster(pc_14$DTM, "G:/Thesis/Sunnybrook/Rasters/Outputs/DTM_NA_14.tif", ove
 
 pc_14A$to_dtm(1)
 
-writeRaster(pc_14A$DTM, "G:/Thesis/Sunnybrook/Rasters/Outputs/DTM_Aligned_14.tif", overwrite = TRUE)
+writeRaster(pc_14A$DTM, "G:/Thesis/FMT_Outputs/DTM_2015.tif", overwrite = TRUE)
 
 # 2019 
 
 pc_19$to_dtm(1)
 
-writeRaster(pc_19$DTM, "G:/Thesis/Sunnybrook/Rasters/Outputs/DTM_19.tif", overwrite = TRUE)
+writeRaster(pc_19$DTM, "G:/Thesis/FMT_Outputs/DTM_2019.tif", overwrite = TRUE)
 
 # CHM
 
@@ -75,22 +484,136 @@ writeRaster(pc_19$DTM, "G:/Thesis/Sunnybrook/Rasters/Outputs/DTM_19.tif", overwr
 
 pc_14$to_chm(1)
 
-writeRaster(pc_14$CHM, "G:/Thesis/Sunnybrook/Rasters/Outputs/CHM_NA_14.tif", overwrite = TRUE)
-
 # Aligned
 
 pc_14A$to_chm(1)
 
-writeRaster(pc_14A$CHM, "G:/Thesis/Sunnybrook/Rasters/Outputs/CHM_Aligned_14.tif", overwrite = TRUE)
+writeRaster(pc_14A$CHM,"G:/Thesis/FMT_Outputs/CHM_2015.tif", overwrite = TRUE)
 
 
 # 2019 
 
 pc_19$to_chm(1)
 
-writeRaster(pc_19$CHM, "G:/Thesis/Sunnybrook/Rasters/Outputs/CHM_19.tif", overwrite = TRUE)
+writeRaster(pc_19$CHM,"G:/Thesis/FMT_Outputs/CHM_2019.tif", overwrite = TRUE)
 
 plot(pc_19$CHM)
+
+
+#This function aligns the two rasters and returns aligned raster objects.
+
+################################################
+
+################################################
+
+#This function aligns the two rasters and returns aligned raster objects.
+aligned_chm <- process_raster(pc_14A$CHM_raw, pc_19$CHM_raw, source_mask = pc_14A$mask, target_mask = pc_19$mask, method = "bilinear")
+
+st_write(pc_14A$mask, "G:/Thesis/FMT_Outputs/mask_2015.shp")
+st_write(pc_19$mask,  "G:/Thesis/FMT_Outputs/mask_2019.shp")
+
+
+source_chm <- aligned_chm[[1]]
+target_chm <- aligned_chm[[2]]
+chm_mask <- aligned_chm[[3]]
+
+# Function to generate CHM and classify the differences
+
+chm_diff_test <- CHM_diff_classify(source_chm, target_chm)
+
+writeRaster(chm_diff_test, "G:/Thesis/FMT_Outputs/Difference15_19.tif")
+
+plot(classified_diff)
+
+raster_values <- terra::values(classified_diff)
+
+# Remove NA values if necessary
+raster_values <- raster_values[!is.na(raster_values)]
+
+# Get the count of each class
+class_counts <- table(raster_values)
+
+# Calculate the total number of cells
+total_cells <- sum(class_counts)
+
+# Calculate the percentage of each class
+class_percentages <- (class_counts / total_cells) * 100
+
+plot(class_percentages)
+
+# Calculate the percentages of each class
+
+
+
+
+diff_values <- function(raster) {
+  # Get the values of the raster
+  
+  # Get the frequency of each class
+  class_freq <- freq(raster)
+  
+  # Calculate the total number of cells
+  total_cells <- sum(class_freq[, "count"])
+  
+  # Calculate percentage for each class
+  class_freq$percentage <- (class_freq$count / total_cells) * 100
+  
+  # Set the class values as row names
+  rownames(class_freq) <- class_freq$value
+  
+  # Remove the 'value' column since it's now the row name
+  class_freq <- class_freq[, -1]
+  
+  return(class_percentages)
+}
+  
+
+# Get the values of the raster
+raster_values <- terra::values(chm_diff_test)
+
+# Remove NA values if necessary
+raster_values <- raster_values[!is.na(raster_values)]
+
+# Get the count of each class
+class_counts <- table(raster_values)
+
+# Calculate the total number of cells
+total_cells <- sum(class_counts)
+
+# Calculate the percentage of each class
+class_percentages <- (class_counts / total_cells) * 100
+
+str(class_percentages)
+
+# Display the results
+print(class_percentages)
+
+# Calculate the percentages of each class
+
+# Get the frequency of each class
+class_freq <- freq(chm_diff_test)
+
+# Calculate the total number of cells
+total_cells <- sum(class_freq[, "count"])
+
+# Calculate percentage for each class
+class_freq$percentage <- (class_freq$count / total_cells) * 100
+
+# Set the class values as row names
+rownames(class_freq) <- class_freq$value
+
+# Remove the 'value' column since it's now the row name
+class_freq <- class_freq[, -1]
+
+# Display the class frequencies with percentages
+print(class_freq)
+
+
+write.csv(class_freq, "G:/Thesis/FMT_Outputs/CHM_diff_freq.csv")
+
+# Plot the statistics
+
+plot_stats(chm_diff_test)
 
 # DTM Validation 
 
@@ -119,6 +642,44 @@ heights <- extract(DTM_Stack, sample_heights)
 
 write.csv(heights, "G:/Thesis/Sunnybrook/Points/Building_Points_Height.csv")
 
+heights_df <- read_csv("G:/Thesis/Sunnybrook/Points/Building_Points_Height.csv")
+
+Height_valid <- heights_df[3:5]
+
+names(Height_valid) <- c("DTM_14", "DTM_14A", "DTM_19")
+
+valid_model <- lm(DTM_19 ~ DTM_14, data = Height_valid)
+summary(valid_model)
+
+
+valid_model_Aligned <- lm(DTM_19 ~ DTM_14A, data = Height_valid)
+summary(valid_model_Aligned)
+
+
+#This function aligns the two rasters and returns aligned raster objects.
+aligned_chm <- process_raster(pc_14A$CHM_raw, pc_19$CHM_raw, source_mask = pc_14A$mask, target_mask = pc_19$mask, method = "bilinear")
+
+
+st_write(pc_14A$mask, paste0(getwd(), "/Data/mask_2015.shp"))
+st_write(pc_19$mask, paste0(getwd(), "/Data/mask_2019.shp"))
+
+################################################
+
+################################################
+
+source_chm <- aligned_chm[[1]]
+target_chm <- aligned_chm[[2]]
+chm_mask <- aligned_chm[[3]]
+
+# Function to generate CHM and classify the differences
+
+chm_diff_test <- CHM_diff_classify(source_chm, target_chm)
+
+plot_stats(chm_diff_test)
+
+# Display the outputs/. 
+
+displayMap(pc_14A$DTM,pc_14A$CHM, chm_diff_test, chm_mask)
 
 # load 2015 data
 
