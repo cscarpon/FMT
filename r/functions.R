@@ -9,7 +9,7 @@ extract_info <- function(file_path) {
   }
   
   # Define the pattern for file extensions
-  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json)$"
+  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json|rds)$"
   
   # List files matching the pattern
   data_list <- list.files(path_normal, pattern = exts, full.names = TRUE)
@@ -68,51 +68,44 @@ extract_info <- function(file_path) {
 
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
 process_raster <- function(source, target, source_mask, target_mask,  method = "bilinear") {
+
+  # Assuming you have predefined masks for source and target
   
-  aligned <- FALSE
-  aligned <- terra::compareGeom(source, target, stopOnError = FALSE)
-    
-  if (!aligned) {
-    # Assuming you have predefined masks for source and target
-    
-    # source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
+  # source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
 
-    union <- sf::st_union(source_mask, target_mask)
-    union <- terra::vect(union)
+  union_sf <- sf::st_union(source_mask, target_mask)
+  union_vect <- terra::vect(union_sf)
 
-    # Crop the source to match the target raster's extent.
+  # Crop the source to match the target raster's extent.
 
-    # source <- transform_raster_crs(source, target, crs)
-    source <- terra::crop(source, terra::ext(union))
-    target <- terra::crop(target, terra::ext(union))
+  # source <- transform_raster_crs(source, target, crs)
+  source <- terra::crop(source, terra::ext(union_vect))
+  target <- terra::crop(target, terra::ext(union_vect))
 
-    source <- terra::resample(source, target, method = method)
-  }
+  source <- terra::resample(source, target, method = method)
   
   # Apply masks to each of the raster layers which will be used for the difference.
-  source <- terra::mask(source, union)
-  target <- terra::mask(target, union)
+  source <- terra::mask(source, union_vect)
+  target <- terra::mask(target, union_vect)
 
-  return(list(source = source, target = target, mask = union))
+  return(list(source = source, target = target, mask = union_vect))
 }
 
 # Function to generate CHM and classify the differences
-CHM_diff_classify <- function(earlier, later) {
+diff_classify <- function(earlier, later) {
     # Compute the difference
     diff <- later - earlier
+    
     # Create a raster for the magnitude of change
     # Classify the differences
     m <- c(-Inf, -10, 1,
-            -10, -2.5, 2,
-            -2.5, 2.5, 3,
-            2.5, 10, 4,
+            -10, -0.5, 2,
+            -0.5, 0.5, 3,
+            0.5, 10, 4,
             10, Inf, 5)
-    # rclmat <- matrix(m, ncol = 3, byrow = TRUE)
     # Create a matrix with the ranges for reclassification
     rclmat <- matrix(m, ncol = 3, byrow = TRUE)
     diff_class <- terra::classify(diff, rclmat, include.lowest = TRUE)
-    # Return the classified difference
-    # Write the output
     return(diff_class)
 }
 
@@ -127,10 +120,10 @@ plot_stats <- function(difference_raster) {
   
   # Define class labels
   class_labels <- c("Large Loss: > 10m loss",
-                    "Loss: 2.5m to 10m loss",
-                    "Minimal change: -2.5m to 2.5m",
-                    "Growth: 2.5m to 10m growth",
-                    "Large Growth: > 10m growth",
+                    "Loss: 0.5m to 10m loss",
+                    "Minimal change: -0.5m to 0.5m",
+                    "Gain: 0.5m to 10m gain",
+                    "Large Gain: > 10m gain",
                     "NaN")
   
   # Define class values
@@ -174,6 +167,7 @@ show_df <- function(df) {
 is_empty <- function(raster) {
     all(is.na(terra::values(raster)))
 }
+
 #Check to ensure sfc is not empty - used for Leaflet testing
 is_empty_sfc <- function(sfc) {
     length(sfc) == 0
@@ -216,32 +210,20 @@ transform_polygon_crs <- function(source_polygon, target_polygon, crs) {
 #Mask pc is called on initially. Every point cloud object will have a mask layer.
 
 mask_pc <- function(pc) {
-    decimate <- lidR::decimate_points(pc, random(1))
-
-    # # Check if there is a ground classification
-    # if (!"2" %in% unique(decimate$Classification)) {
-    # 
-    #   # Classify ground
-    #   pc_decimated <- lidR::classify_ground(decimate, csf())
-    #   pc_ground <- lidR::filter_poi(pc_decimated, Classification == 2)
-    # } else {
-    #   pc_ground <- lidR::filter_poi(decimate, Classification == 2)
-    # }
-    coords_sf <- sf::st_as_sf(decimate@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
     
-    # # Step 1: Create a 1m grid over the extent of the points
-    # bbox <- sf::st_bbox(coords_sf)
-    # grid <- sf::st_make_grid(sf::st_as_sfc(bbox), cellsize = 1, what = "squares")
-    # 
-    # # Step 2: Snap points to the nearest grid cell
-    # grid_sf <- sf::st_as_sf(grid)
-    # coords_sf$grid_id <- sf::st_nearest_feature(coords_sf, grid_sf)
-    # 
-    # # Step 3: Remove duplicate points within the same grid cell
-    # unique_coords_sf <- coords_sf %>%
-    #   group_by(grid_id) %>%
-    #   slice(1) %>%
-    #   ungroup()
+    # Step 1:  Remove density to 1 point per square meter
+    decimate <- lidR::decimate_points(pc, random(1))
+    
+    # Step 2: Remove duplicate (X, Y) points
+    unique_points <- decimate@data %>%
+      dplyr::distinct(X, Y)  # Keep only unique X, Y pairs
+    
+    coords_sf <- sf::st_as_sf(unique_points[, c("X", "Y")], 
+                              coords = c("X", "Y"), 
+                              crs = lidR::projection(pc))
+    
+    # Step 3: Convert the decimated points to an sf object
+    coords_sf <- sf::st_as_sf(decimate@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
     
     # Step 4: Buffer the points by 3 meters
     buffered_points <- sf::st_buffer(coords_sf, dist = 3)
@@ -250,7 +232,7 @@ mask_pc <- function(pc) {
     unioned_buffer <- sf::st_union(buffered_points)
     
     # Step 6: Apply a negative buffer (shrink by 3 meters)
-    final_polygon <- sf::st_buffer(unioned_buffer, dist = -3, endCapStyle = "SQUARE")
+    final_polygon <- sf::st_buffer(unioned_buffer, dist = -3)
     
     # Step 7: Ensure the polygon is valid
     final_polygon <- sf::st_make_valid(final_polygon)
@@ -271,8 +253,7 @@ mask_pc <- function(pc) {
     final_sf <- do.call(sf::st_sfc, final_result)
     final_sf <- rmapshaper::ms_simplify(final_sf, keep = 0.03, weighting = 2.0, keep_shapes = TRUE)
     final_sf <- sf::st_as_sf(final_sf)
-    
-    sf::st_crs(final_sf) <- lidR::projection(pc)
+    final_sf <- sf::st_transform(final_sf, crs = sf::st_crs(pc))
     
     return(final_sf)
 }
@@ -287,8 +268,8 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
       primaryAreaUnit = "sqmeters",
       activeColor = "#3D535D",
       completedColor = "#7D4479")
-  
-  
+    # Add north arrow as an image
+    # leafem::addLogo(file.path("./www/northNA.png"), src = "local", position = "topleft", width = 50, height = 50)
   # Transform mask if it's not NULL
   if (!is.null(mask)) {
     mask <- terra::project(mask, "EPSG:4326")
@@ -373,9 +354,41 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   }
   
   if (!is.null(diff_round)) {
-    labels <- c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10")
+    labels <- c("< -10", "-10 to -0.5", "-0.5 to 0.5", "0.5 to 10", "> 10")
     m <- addLegend(m, colors = colors, labels = labels, position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
   }
+  
+  return(m)
+}
+
+displayIndex <- function(index) {
+  m <- leaflet::leaflet() %>%
+    leaflet::addTiles() %>%
+    leaflet::addScaleBar(position = "bottomleft") %>%
+    leaflet::addMeasure(
+      position = "topleft", 
+      primaryLengthUnit = "meters", 
+      primaryAreaUnit = "sqmeters",
+      activeColor = "#3D535D",
+      completedColor = "#7D4479")
+    # leafem::addLogo(file.path("./www/northNA.png"), src = "local", position = "bottomleft", width = 50, height = 50)
+    # Transform index if it's not NULL
+    if (!is.null(index)) {
+      index <- sf::st_transform(index, 4326)
+    }
+  # Add index polygons if index is not NULL
+  if (!is.null(index)) {
+    m <- addPolygons(m, data = index, color = "black", fill = FALSE, group = "Index")
+  }
+  
+  # Add layers control with all layers turned off initially except the mask
+  overlayGroups <- c()
+  if (!is.null(index)) overlayGroups <- c(overlayGroups, "Index")
+  
+  m <- addLayersControl(m, overlayGroups = overlayGroups, options = layersControlOptions(collapsed = FALSE))
+  
+  # Hide all layers except the mask
+  m <- showGroup(m, "Index")
   
   return(m)
 }
@@ -432,4 +445,186 @@ create_directories <- function(data_dir, save_dir) {
   } else {
     message(paste("Directory already exists:", save_dir))
   }
+}
+
+count_time <- function(expr) {
+  start.time <- Sys.time()  # Start timer
+  output <- eval.parent(substitute(expr))  # Evaluate the expression in the parent environment
+  end.time <- Sys.time()  # End timer
+  time.taken <- end.time - start.time  # Calculate time difference
+  
+  # Print the time taken with a more readable message
+  print(paste0("The task took ", round(time.taken, 2), " seconds to complete."))
+  
+  return(output)  # Return the output from the evaluated expression
+}
+
+noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) {
+  
+  start.time <- Sys.time()
+  
+  # Step 1: Create a unique PointID in the original LAS
+  laz@data$PointID <- seq_len(nrow(laz@data))
+  
+  if (sf::st_crs(footprint) != sf::st_crs(laz)) {
+    print("Transforming footprint to mask CRS")
+    footprint <- sf::st_transform(footprint, crs = sf::st_crs(laz))
+  } else {
+    print("CRS match")
+  }
+  
+  
+  if (sf::st_crs(mask) != sf::st_crs(laz)) {
+    print("Transforming footprint to mask CRS")
+    footprint <- sf::st_transform(mask, crs = sf::st_crs(laz))
+  } else {
+    print("CRS match")
+  }
+  
+  diff_mask <- sf::st_difference(mask, footprint)
+  
+  if (sf::st_crs(diff_mask) != sf::st_crs(laz)) {
+    print("Transforming mask to las CRS")
+    diff_mask <- sf::st_transform(diff_mask, crs = sf::st_crs(laz))
+  } else {
+    print("CRS match")
+  }
+  
+  
+  print("Clipping Buildings")
+  buildings <- lidR::clip_roi(laz, footprint)
+  
+  print("Apply Classification")
+  buildings@data$Classification <- 6
+  
+  # Step 3: Clip the LiDAR points that intersect with the building footprints
+  las_no_buildings <- lidR::clip_roi(laz, diff_mask)
+  
+  print("removing noise")
+  
+  # Step 2: Use SOR to classify noise points
+  las_fix <- lidR::classify_noise(las_no_buildings, sor(k = k_sor1, m =  m_sor1))
+  las_fix1 <- lidR::filter_poi(las_fix, Classification != 18)  # Remove noise points
+  rm(las_fix)  # Remove intermediate objects to free memory
+  
+  las_fix2 <- lidR::classify_noise(las_fix1, sor(k = k_sor2, m = m_sor2))
+  las_fix2 <- lidR::filter_poi(las_fix2, Classification != 18)  # Remove noise points
+  rm(las_fix1)
+  
+  print("Classifying ground")
+  
+  # Step 3: Classify ground points using the 
+  las_fix2 <- lidR::classify_ground(las_fix2, algorithm = csf())
+  
+  ground_points <- lidR::filter_ground(las_fix2)
+  
+  # las_clean contains only non-ground points
+  las_clean <- lidR::filter_poi(las_fix2, Classification != 2)  # Non-ground
+  
+  print("removing cables")
+  # Step 5: Segment transmission lines (Cables)
+  las_clean1 <- lidR::segment_shapes(las_clean, shp_line(k = 5, th1 = 30), "Cables")
+  
+  # Step 6: Join back 'Cables' classification to the original las_fix (including ground points)
+  las_fix2@data <- dplyr::left_join(las_fix2@data, las_clean1@data[, c("PointID", "Cables")], by = "PointID")
+  
+  # Remove Transmission Lines from las_clean for the next segmentation
+  las_clean2 <- lidR::filter_poi(las_clean1, Cables == "FALSE")
+  
+  print("removing poles")
+  
+  # Step 7: Segment vertical poles
+  las_clean3 <- lidR::segment_shapes(las_clean2, shp_vline(th1 = 5, k = 4), "Poles")
+  las_fix2@data <- dplyr::left_join(las_fix2@data, las_clean3@data[, c("PointID", "Poles")], by = "PointID")
+  rm(las_clean2)
+  
+  las_clean3 <- lidR::filter_poi(las_clean3, Poles == "FALSE")
+  
+  # Step 12: Filter out all points classified as Cables, Poles, Walls, or Roofs (preserve ground points)
+  
+  las_clean3@data <- las_clean3@data[, -c("Cables", "Poles")]
+  
+  las_final <- rbind(buildings, ground_points, las_clean3)
+  
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  print(paste0("It has taken ", time.taken, " to denoise your LAS file!"))
+  
+  return(las_final)  # Return the point cloud with segmentation and ground classification retained
+}
+
+noise_filter <- function(laz,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) {
+  
+  start.time <- Sys.time()
+  
+  # Step 1: Create a unique PointID in the original LAS
+  laz@data$PointID <- seq_len(nrow(laz@data))
+  
+  print("removing noise")
+  
+  # Step 2: Use SOR to classify noise points
+  las_fix <- lidR::classify_noise(laz, sor(k = k_sor1, m =  m_sor1))
+  las_fix1 <- lidR::filter_poi(las_fix, Classification != 18)  # Remove noise points
+  rm(las_fix)  # Remove intermediate objects to free memory
+  
+  las_fix2 <- lidR::classify_noise(las_fix1, sor(k = k_sor2, m = m_sor2))
+  las_fix2 <- lidR::filter_poi(las_fix2, Classification != 18)  # Remove noise points
+  rm(las_fix1)
+
+  ground_points <- lidR::filter_ground(las_fix2)
+  
+  # las_clean contains only non-ground points
+  las_clean <- lidR::filter_poi(las_fix2, Classification != 2)  # Non-ground
+  
+  print("removing cables")
+  # Step 5: Segment transmission lines (Cables)
+  las_clean1 <- lidR::segment_shapes(las_clean, shp_line(k = 5, th1 = 30), "Cables")
+  
+  # Step 6: Join back 'Cables' classification to the original las_fix (including ground points)
+  las_fix2@data <- dplyr::left_join(las_fix2@data, las_clean1@data[, c("PointID", "Cables")], by = "PointID")
+  
+  # Remove Transmission Lines from las_clean for the next segmentation
+  las_clean2 <- lidR::filter_poi(las_clean1, Cables == "FALSE")
+  
+  print("removing poles")
+  
+  # Step 7: Segment vertical poles
+  las_clean3 <- lidR::segment_shapes(las_clean2, shp_vline(th1 = 5, k = 4), "Poles")
+  las_fix2@data <- dplyr::left_join(las_fix2@data, las_clean3@data[, c("PointID", "Poles")], by = "PointID")
+  rm(las_clean2)
+  
+  las_clean3 <- lidR::filter_poi(las_clean3, Poles == "FALSE")
+  
+  # Step 12: Filter out all points classified as Cables, Poles, Walls, or Roofs (preserve ground points)
+  
+  las_clean3@data <- las_clean3@data[, -c("Cables", "Poles")]
+  
+  las_final <- rbind(ground_points, las_clean3)
+  
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  print(paste0("It has taken ", time.taken, " to denoise your LAS file!"))
+  
+  return(las_final)  # Return the point cloud with segmentation and ground classification retained
+}
+
+diff_values <- function(raster) {
+  # Get the values of the raster
+  
+  # Get the frequency of each class
+  class_freq <- freq(raster)
+  
+  # Calculate the total number of cells
+  total_cells <- sum(class_freq[, "count"])
+  
+  # Calculate percentage for each class
+  class_freq$percentage <- (class_freq$count / total_cells) * 100
+  
+  # Set the class values as row names
+  rownames(class_freq) <- class_freq$value
+  
+  # Remove the 'value' column since it's now the row name
+  class_freq <- class_freq[, -1]
+  
+  return(class_percentages)
 }

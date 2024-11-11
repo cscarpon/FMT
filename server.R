@@ -8,10 +8,10 @@
                         metadata = NULL,
                         sc1 = NULL,
                         sc2 = NULL,
+                        footprints = NULL,
                         crs = NULL,
                         resolution = NULL,
-                        source_chm = NULL,
-                        target_chm = NULL,
+                        processing = NULL,
                         union_mask = NULL,
                         classified_diff = NULL,
                         results = NULL,
@@ -21,13 +21,23 @@
     #Server logic to accept the directories and plot the metadata
     # Non-reactive value to store the data directory path
     # Define the default paths
+    
+    output$photo <- renderImage({
+      list(
+        src = file.path("./www/CF.png"),
+        contentType = "image/png",
+        width = 700,
+        height = 600
+      )
+    }, deleteFile = FALSE)
+    
     data_default <- paste0(getwd(), "/data/")
     save_drive <- paste0(getwd(), "/saves/")
     
     # Call the function to create directories if they don't exist
     create_directories(data_default, save_drive)
     
-    rv <- reactiveValues(console_output = list(messages = "Welcome to FMT"))
+    rv <- reactiveValues(console_output = list(messages = "Welcome to CF"))
     
     output$console_output <- renderUI({
       lapply(seq_along(rv$console_output), function(i) {
@@ -82,7 +92,7 @@
     ##Server logic to load source PC from Directory
     observeEvent(input$confirm, {
       req(rv$metadata)  # Ensure metadata is loaded
-      a
+      
       # Filter for .laz files
       laz_names <- rv$metadata %>%
         dplyr::filter(grepl("\\.laz$ || \\.las$", file_path)) %>%
@@ -91,63 +101,174 @@
       # Update the dropdown for selecting the source point cloud
       updateSelectInput(session, "selected_source", choices = laz_names)
       updateSelectInput(session, "selected_target", choices = laz_names)
+      
+      # Filter for footprint files
+      shp_names <- rv$metadata %>%
+        dplyr::filter(grepl("\\.shp$", file_path)) %>%
+        dplyr::pull(file_name)
+      
+      updateSelectInput(session, "selected_buildings", choices = shp_names)
+      
     })
     
     observeEvent(input$PC_confirm, {
       
-      showModal(modalDialog("Initializing LAS and creating masks", footer=NULL))
+      showModal(modalDialog("Initializing LAS and LAS Index", footer = NULL))
       # Ensure the selections are made
-      req(input$selected_source, input$selected_target, rv$metadata)
+      req(input$selected_source, input$selected_target, input$selected_buildings, rv$metadata)
       
-      laz_data <- rv$metadata %>%
-        dplyr::filter(grepl("\\.laz$|\\.las$", file_path)) %>%
-        dplyr::select(file_path, file_name)
-      
-      source_laz <- input$selected_source
-      target_laz <- input$selected_target
-      
-      # Match source_laz and target_laz to their corresponding paths
-      source_path <- laz_data %>%
-        dplyr::filter(file_name == source_laz) %>%
-        dplyr::pull(file_path)
-      
-      # Match laz_name1 and laz_name2 to their corresponding paths
-      target_path <- laz_data %>%
-        dplyr::filter(file_name == target_laz)  %>%
-        dplyr::pull(file_path)
-
-      # Retrieve the file paths from the selections
-      las_path1 <- normalizePath(source_path, winslash = "/")
-      las_path2 <- normalizePath(target_path, winslash = "/")
-      showModal(modalDialog("Initializing LAS and creating mask for PC 1", footer=NULL))
-      
-      # Process the source point cloud
-      if (!is.null(las_path1)) {
-        sc1 <- spatial_container$new(as.character(las_path1))
-        sc1$set_crs(rv$crs)
-        rv$sc1 <- sc1
+      if (tools::file_ext(input$selected_source) == "rds") {
+        r_data <- rv$metadata %>%
+          dplyr::filter(grepl("\\.rds", file_path)) %>%
+          dplyr::select(file_path, file_name)
+        
+        source_rd <- input$selected_source
+        target_rd <- input$selected_target
+        
+        # Match source_laz and target_laz to their corresponding paths
+        source_path <- r_data %>%
+          dplyr::filter(file_name == source_rd) %>%
+          dplyr::pull(file_path)
+        
+        # Match laz_name1 and laz_name2 to their corresponding paths
+        target_path <- r_data %>%
+          dplyr::filter(file_name == target_rd)  %>%
+          dplyr::pull(file_path)
+        
+        # Retrieve the file paths from the selections
+        rd_path1 <- normalizePath(source_path, winslash = "/")
+        rd_path2 <- normalizePath(target_path, winslash = "/")
+        
+        showModal(modalDialog("Loading spatial container", footer = NULL))
+        
+        rv$sc1 <- load(rd_path1)
+        rv$sc2 <- load(rd_path2)
+        removeModal()
+      } else {
+        laz_data <- rv$metadata %>%
+          dplyr::filter(grepl("\\.laz$|\\.las$", file_path)) %>%
+          dplyr::select(file_path, file_name)
+        
+        source_laz <- input$selected_source
+        target_laz <- input$selected_target
+        buildings_shape <- input$selected_buildings
+        
+        # Match source_laz and target_laz to their corresponding paths
+        source_path <- laz_data %>%
+          dplyr::filter(file_name == source_laz) %>%
+          dplyr::pull(file_path)
+        
+        # Match laz_name1 and laz_name2 to their corresponding paths
+        target_path <- laz_data %>%
+          dplyr::filter(file_name == target_laz)  %>%
+          dplyr::pull(file_path)
+        
+        # Filter for footprint files
+        build_path <- rv$metadata %>%
+          dplyr::filter(file_name == buildings_shape) %>%
+          dplyr::pull(file_path)
+  
+        # Retrieve the file paths from the selections
+        las_path1 <- normalizePath(source_path, winslash = "/")
+        las_path2 <- normalizePath(target_path, winslash = "/")
+        build_path <- normalizePath(build_path, winslash = "/")
+        
+        # Adding the footprints to the RV
+        
+        rv$footprints <- sf::st_read(build_path)
+    
+        showModal(modalDialog("Initializing LAS and Index for PC 1", footer = NULL))
+        
+        # Process the source point cloud
+        if (!is.null(las_path1)) {
+          sc1 <- spatial_container$new(as.character(las_path1))
+          sc1$set_crs(rv$crs)
+          rv$sc1 <- sc1
+        }
+        
+        new_message <- capture_output(print(rv$sc1$LPC))
+        add_message(new_message, rv)
+        
+        showModal(modalDialog("Initializing LAS and Index for PC 2", footer = NULL))
+        
+        add_message("Initializing the Target point cloud", rv)
+        
+        # Process the target point cloud
+        if (!is.null(las_path2)) {
+          sc2 <- spatial_container$new(as.character(las_path2))
+          sc2$set_crs(rv$crs)
+          rv$sc2 <- sc2  
+        }
+        new_message <- capture_output(print(rv$sc2$LPC))
+        add_message(new_message, rv)
+        
+        updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
+        
+        output$leafletmap <- renderLeaflet({
+          displayIndex(sc1$index)
+        })
+        
+        removeModal()
       }
+     })
+    # Server logic to to create masks for both PCs on the source and target point clouds
+    
+    observeEvent(input$run_mask, {
+      req(rv$sc1, rv$sc2)
       
-      new_message <- capture_output(print(rv$sc1$LPC))
-      add_message(new_message, rv)
+      add_message("Generating a mask for Source and Target", rv)
       
-      showModal(modalDialog("Initializing LAS and creating mask for PC 2", footer = NULL))
+      showModal(modalDialog("Creating mask for Source PC", footer = NULL))
       
-      add_message("Initializing the Target point cloud", rv)
+      # Generate mask for source point cloud
       
-      # Process the target point cloud
-      if (!is.null(las_path2)) {
-        sc2 <- spatial_container$new(as.character(las_path2))
-        sc2$set_crs(rv$crs)
-        rv$sc2 <- sc2  
-      }
-      new_message <- capture_output(print(rv$sc2$LPC))
-      add_message(new_message, rv)
+      mask_source <- mask_pc(rv$sc1$LPC)
+      rv$sc1$mask <- sf::st_transform(mask_source, crs = sf::st_crs(rv$sc1$LPC))
       
-      updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
+      showModal(modalDialog("Creating mask for Target PC", footer = NULL))
+      
+      mask_target <- mask_pc(rv$sc2$LPC)
+      rv$sc2$mask <- sf::st_transform(mask_target, crs = sf::st_crs(rv$sc2$LPC))
       
       removeModal()
+    })
+    
+    # Server logic to Denoise both PCs on the source and target point clouds
+    
+    observeEvent(input$run_denoise, {
+      req(rv$sc1, rv$sc2, rv$footprints)
+      
+      add_message("Running Denoising on Source", rv)
+      
+      showModal(modalDialog("Running Denoising on Source", footer = NULL))
+      
+      tryCatch({
+        
+        noiseless_source <- noise_filter_buildings(rv$sc1$LPC,rv$sc1$mask,rv$footprints)
+        
+        rv$sc1$LPC <- noiseless_source
 
+      }, error = function(e) {
+        new_message <- paste0("An error occurred: ", e$message)
+        add_message(new_message, rv)
+      })
+      
+      add_message("Running Denoising on Target", rv)
+      
+      showModal(modalDialog("Running Denoising on Target", footer = NULL))
+      
+      tryCatch({
+        
+        noiseless_target <- noise_filter_buildings(rv$sc2$LPC, rv$sc2$mask, rv$footprints)
+        
+        rv$sc2$LPC <- noiseless_target
+        
+      }, error = function(e) {
+        new_message <- paste0("An error occurred: ", e$message)
+        add_message(new_message, rv)
+      })
+      
+      removeModal()
     })
     
     # Server logic to run ICP on the source and target point clouds
@@ -208,6 +329,8 @@
           new_message <- paste("Error in creating DTM:", e$message)
           add_message(new_message, rv)
       })
+      
+      
     })
 
     observeEvent(input$dtm2, {
@@ -220,10 +343,11 @@
         
         #Calling the DTM Function
         rv$sc2$to_dtm(rv$resolution)
-        
+        updateSelectInput(session, "selected_target_raster", choices = c("DTM" = "sc2$DTM"))
         #Printing the DTM statistics
         object_message <- capture_output(print(rv$sc2$DTM))
         add_message(object_message, rv)
+        
       }, error = function(e){
         new_message <- paste("Error in creating DTM:", e$message)
         add_message(new_message, rv)
@@ -240,13 +364,13 @@
         tryCatch({
         
         rv$sc1$to_chm(resolution = rv$resolution)
-
         object_message <- capture_output(print(rv$sc1$CHM))
         add_message(object_message, rv)
         }, error = function(e){
           new_message <- paste("Error in creating CHM:", e$message)
           add_message(new_message, rv)
       })
+        
     })
 
     observeEvent(input$chm2, {
@@ -266,17 +390,52 @@
           add_message(new_message, rv)
       })
     })
-
-    observeEvent(input$align_chms, {
-      req(rv$sc1, rv$sc2)
+    
+    observeEvent(input$selected_processing, {
+      req(input$selected_processing != "")  # Ensure valid input
+      
+      new_message <- paste0("Raster processing selected: ", input$selected_processing)
+      add_message(new_message, rv)
+      
+      # Perform further processing based on the selected raster type
+      rv$processing <- input$selected_processing
+    })
+    
+    ##Server logic to load source PC from Directory
+    observeEvent(input$confirm, {
+      req(rv$metadata)  # Ensure metadata is loaded
+      
+      # Filter for .laz files
+      laz_names <- rv$metadata %>%
+        dplyr::filter(grepl("\\.laz$ || \\.las$", file_path)) %>%
+        dplyr::pull(file_name)
+      
+      # Update the dropdown for selecting the source point cloud
+      updateSelectInput(session, "selected_source", choices = laz_names)
+      updateSelectInput(session, "selected_target", choices = laz_names)
+      
+      # Filter for footprint files
+      shp_names <- rv$metadata %>%
+        dplyr::filter(grepl("\\.shp$", file_path)) %>%
+        dplyr::pull(file_name)
+      
+      updateSelectInput(session, "selected_buildings", choices = shp_names)
+      
+    })
+    
+    observeEvent(input$align_rasters, {
+      req(rv$sc1, rv$sc2, rv$processing)
       new_message <- "Running Raster Alignment"
       add_message(new_message, rv)
       
+      
+      if (rv$processing == "CHM") {
+      
       tryCatch({
-        aligned_chm <- process_raster(rv$sc1$CHM_raw, rv$sc2$CHM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
+        aligned_chm <- process_raster(source = rv$sc1$CHM_raw, target = rv$sc2$CHM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
         
-        rv$source_chm <- aligned_chm[[1]]
-        rv$target_chm <- aligned_chm[[2]]
+        rv$source_raster <- aligned_chm[[1]]
+        rv$target_raster <- aligned_chm[[2]]
         rv$union_mask <- aligned_chm[[3]]
 
         
@@ -287,19 +446,49 @@
         new_message <- paste("Error in aligning CHMs:", e$message)
         add_message(new_message, rv)
       })
+      } else if (rv$processing == "DTM") {
+        
+        tryCatch({
+          aligned_dtm <- process_raster(source = rv$sc1$DTM_raw, target = rv$sc2$DTM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
+          
+          rv$source_raster <- aligned_dtm[[1]]
+          rv$target_raster <- aligned_dtm[[2]]
+          rv$union_mask <- aligned_dtm[[3]]
+          
+          new_message <- "Raster Alignment Complete"
+          add_message(new_message, rv)
+          
+        }, error = function(e){
+          new_message <- paste("Error in aligning DTMs:", e$message)
+          add_message(new_message, rv)
+        })
+      }
     })
 
     #Button logic to classify the difference between the two CHMs
     
-    observeEvent(input$classify_chm, {
+    observeEvent(input$classify_raster, {
       # Ensure the DTMs exist and have been processed for each spatial_obj
-      req(rv$source_chm, rv$target_chm, rv$union_mask)
+      req(rv$source_raster, rv$target_raster, rv$union_mask, rv$footprints, rv$resolution, rv$crs)
       new_message <- "Running Classification"
       add_message(new_message, rv)
 
       tryCatch({
         
-        classified_diff <- CHM_diff_classify(rv$source_chm, rv$target_chm)
+        # Create a new raster with the same extent as SB_Change and 1m resolution
+        template_raster <- terra::rast(extent = terra::ext(rv$source_raster), resolution = rv$resolution)
+        
+
+        # Step 3: Rasterize the building polygons onto the new 1m raster grid
+        buildings_raster <- terra::rasterize(terra::vect(rv$footprints), template_raster, background = NA)
+        
+        terra::crs(buildings_raster) <- terra::crs(rv$source_raster)
+        
+        # Step 4: Set the overlapping raster cells in SB_Change to 0 where buildings exist
+        rv$source_raster[!is.na(buildings_raster)] <- 0
+        rv$target_raster[!is.na(buildings_raster)] <- 0
+        
+        classified_diff <- diff_classify(rv$source_raster, rv$target_raster)
         diff_class <- terra::mask(classified_diff, rv$union_mask)
 
         # Save the processed raster in the rv list so it can be accessed elsewhere
@@ -348,7 +537,7 @@
     observeEvent(input$plot_leaf, {
       tryCatch({
         output$leafletmap <- renderLeaflet({
-          displayMap(rv$sc1$DTM, rv$source_chm, rv$classified_diff, rv$union_mask)
+          displayMap(rv$sc1$DTM, rv$sc1$CHM, rv$classified_diff, rv$union_mask)
         })
       }, error = function(e) {
         print(paste("An error occurred while plotting the map:", e$message))
@@ -378,13 +567,13 @@
                     layerId = "dtmLegend", opacity = 1)
       } else if (rv$current_legend == "CHM") {
         leafletProxy("leafletmap") %>% clearControls() %>%
-          addLegend(pal = colorNumeric("magma", domain = values(rv$source_chm), na.color = "transparent"), 
-                    values = values(rv$source_chm), position = "bottomright", title = "Canopy Height Model (m)", 
+          addLegend(pal = colorNumeric("magma", domain = values(rv$sc1$CHM), na.color = "transparent"), 
+                    values = values(rv$sc1$CHM), position = "bottomright", title = "Canopy Height Model (m)", 
                     layerId = "chmLegend", opacity = 1)
       } else if (rv$current_legend == "Diff") {
         leafletProxy("leafletmap") %>% clearControls() %>%
           addLegend(colors = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"), 
-                    labels = c("< -10", "-10 to -2.5", "-2.5 to 2.5", "2.5 to 10", "> 10"), 
+                    labels = c("< -10", "-10 to -0.5", "-0.5 to 0.5", "0.5 to 10", "> 10"), 
                     position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
       }
     })
@@ -401,53 +590,75 @@
  #Saving the xyz from the PCC
  
   observeEvent(input$save_las, {
-    req(selected_las(), rv$out_dir)  
-    las <- selected_las()  
+    req(rv$sc1, rv$sc2, rv$out_dir)
     
-    if (!is.null(las$filepath)) {
-      filepath <- las$filepath
-      filename <- basename(filepath)
-      filesplit <- strsplit(filename, "\\.")[[1]]
-      final_name <- filesplit[1]
-      out_dir <- rv$out_dir
-      path <- paste0(out_dir, "/", final_name, ".laz")
-      las$save_las(path)
-      print(paste("LAS file saved to:", path))
-    } else {
-      print("No file path found for saving LAS.")
-    }
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    out_dir <- rv$out_dir
+    path <- paste0(out_dir, "/", file_name, ".laz")
+    rv$sc1$save_las(path)
+    
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name , ".laz")
+    rv$sc2$save_las(path)
+    
+  })
+  
+  # saving the spatial container
+  
+  observeEvent(input$save_sc, {
+    req(rv$sc1, rv$sc2, rv$out_dir)
+    
+    # saving sc1
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    out_dir <- rv$out_dir
+    path <- paste0(out_dir, "/", file_name, ".rds")
+    rv$sc1$save_sc(path)
+    
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name, ".rds")
+    rv$sc2$save_sc(path)
+    
   })
  
   observeEvent(input$save_dtm, {
+    req(rv$sc1, rv$sc2, rv$out_dir)
     
-    # Ensure selected_las() is not NULL
-    req(selected_las(), rv$out_dir)
-    
-    filepath <- selected_las()$filepath
-    filename <- basename(filepath)
-    filesplit <- strsplit(filename, "\\.")[[1]]
-    final_name <- filesplit[1]
+    # saving sc1
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
     out_dir <- rv$out_dir
-    path <- paste0(out_dir, "/", final_name, "_DTM.tif")
+    path <- paste0(out_dir, "/", file_name, "_dtm.tif")
+    rv$sc1$save_dtm(path)
     
-    selected_las()$save_dtm(path)
-    print(paste("DTM file saved to:", path))
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name, "_dtm.tif")
+    rv$sc2$save_dtm(path)
+
   })
  
   observeEvent(input$save_chm, {
+    req(rv$sc1, rv$sc2, rv$out_dir)
     
-    # Ensure selected_las() is not NULL
-    req(selected_las(), rv$out_dir)  
-    
-    filepath <- selected_las()$filepath
-    filename <- basename(filepath)
-    filesplit <- strsplit(filename, "\\.")[[1]]
-    final_name <- filesplit[1]
+    # saving sc1
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
     out_dir <- rv$out_dir
-    path <- paste0(out_dir, "/", final_name, "_CHM.tif")
+    path <- paste0(out_dir, "/", file_name, "_chm.tif")
+    rv$sc1$save_chm(path)
     
-    selected_las()$save_chm(path)
-    print(paste("CHM file saved to:", path))
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name, "_chm.tif")
+    rv$sc2$save_chm(path)
   })
  
   observeEvent(input$save_mask, {
