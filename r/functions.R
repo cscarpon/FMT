@@ -9,7 +9,7 @@ extract_info <- function(file_path) {
   }
   
   # Define the pattern for file extensions
-  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json)$"
+  exts <- "\\.(laz|las|xyz|csv|shp|tif|tiff|json|rds)$"
   
   # List files matching the pattern
   data_list <- list.files(path_normal, pattern = exts, full.names = TRUE)
@@ -68,40 +68,33 @@ extract_info <- function(file_path) {
 
 # Function to for preprocessing of a raster. It aligns the source to the target, resamples and then masks the output so they have the same extent as the target
 process_raster <- function(source, target, source_mask, target_mask,  method = "bilinear") {
+
+  # Assuming you have predefined masks for source and target
   
-  aligned <- FALSE
-  aligned <- terra::compareGeom(source, target, stopOnError = FALSE)
-    
-  if (!aligned) {
-    # Assuming you have predefined masks for source and target
-    
-    # source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
+  # source_mask <- transform_polygon_crs(source_mask, target_mask, crs)
 
-    union <- sf::st_union(source_mask, target_mask)
-    union <- terra::vect(union)
+  union_sf <- sf::st_union(source_mask, target_mask)
+  union_vect <- terra::vect(union_sf)
 
-    # Crop the source to match the target raster's extent.
+  # Crop the source to match the target raster's extent.
 
-    # source <- transform_raster_crs(source, target, crs)
-    source <- terra::crop(source, terra::ext(union))
-    target <- terra::crop(target, terra::ext(union))
+  # source <- transform_raster_crs(source, target, crs)
+  source <- terra::crop(source, terra::ext(union_vect))
+  target <- terra::crop(target, terra::ext(union_vect))
 
-    source <- terra::resample(source, target, method = method)
-  }
+  source <- terra::resample(source, target, method = method)
   
   # Apply masks to each of the raster layers which will be used for the difference.
-  source <- terra::mask(source, union)
-  target <- terra::mask(target, union)
+  source <- terra::mask(source, union_vect)
+  target <- terra::mask(target, union_vect)
 
-  return(list(source = source, target = target, mask = union))
+  return(list(source = source, target = target, mask = union_vect))
 }
 
 # Function to generate CHM and classify the differences
 diff_classify <- function(earlier, later) {
     # Compute the difference
     diff <- later - earlier
-    
-    
     
     # Create a raster for the magnitude of change
     # Classify the differences
@@ -129,8 +122,8 @@ plot_stats <- function(difference_raster) {
   class_labels <- c("Large Loss: > 10m loss",
                     "Loss: 0.5m to 10m loss",
                     "Minimal change: -0.5m to 0.5m",
-                    "Growth: 0.5m to 10m growth",
-                    "Large Growth: > 10m growth",
+                    "Gain: 0.5m to 10m gain",
+                    "Large Gain: > 10m gain",
                     "NaN")
   
   # Define class values
@@ -174,6 +167,7 @@ show_df <- function(df) {
 is_empty <- function(raster) {
     all(is.na(terra::values(raster)))
 }
+
 #Check to ensure sfc is not empty - used for Leaflet testing
 is_empty_sfc <- function(sfc) {
     length(sfc) == 0
@@ -222,7 +216,7 @@ mask_pc <- function(pc) {
     
     # Step 2: Remove duplicate (X, Y) points
     unique_points <- decimate@data %>%
-      dplyr::distinct(X, Y, .keep_all = TRUE)  # Keep only unique X, Y pairs
+      dplyr::distinct(X, Y)  # Keep only unique X, Y pairs
     
     coords_sf <- sf::st_as_sf(unique_points[, c("X", "Y")], 
                               coords = c("X", "Y"), 
@@ -274,8 +268,8 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
       primaryAreaUnit = "sqmeters",
       activeColor = "#3D535D",
       completedColor = "#7D4479")
-  
-  
+    # Add north arrow as an image
+    # leafem::addLogo(file.path("./www/northNA.png"), src = "local", position = "topleft", width = 50, height = 50)
   # Transform mask if it's not NULL
   if (!is.null(mask)) {
     mask <- terra::project(mask, "EPSG:4326")
@@ -363,6 +357,38 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
     labels <- c("< -10", "-10 to -0.5", "-0.5 to 0.5", "0.5 to 10", "> 10")
     m <- addLegend(m, colors = colors, labels = labels, position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
   }
+  
+  return(m)
+}
+
+displayIndex <- function(index) {
+  m <- leaflet::leaflet() %>%
+    leaflet::addTiles() %>%
+    leaflet::addScaleBar(position = "bottomleft") %>%
+    leaflet::addMeasure(
+      position = "topleft", 
+      primaryLengthUnit = "meters", 
+      primaryAreaUnit = "sqmeters",
+      activeColor = "#3D535D",
+      completedColor = "#7D4479")
+    # leafem::addLogo(file.path("./www/northNA.png"), src = "local", position = "bottomleft", width = 50, height = 50)
+    # Transform index if it's not NULL
+    if (!is.null(index)) {
+      index <- sf::st_transform(index, 4326)
+    }
+  # Add index polygons if index is not NULL
+  if (!is.null(index)) {
+    m <- addPolygons(m, data = index, color = "black", fill = FALSE, group = "Index")
+  }
+  
+  # Add layers control with all layers turned off initially except the mask
+  overlayGroups <- c()
+  if (!is.null(index)) overlayGroups <- c(overlayGroups, "Index")
+  
+  m <- addLayersControl(m, overlayGroups = overlayGroups, options = layersControlOptions(collapsed = FALSE))
+  
+  # Hide all layers except the mask
+  m <- showGroup(m, "Index")
   
   return(m)
 }
@@ -527,7 +553,6 @@ noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3
   return(las_final)  # Return the point cloud with segmentation and ground classification retained
 }
 
-
 noise_filter <- function(laz,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) {
   
   start.time <- Sys.time()
@@ -581,39 +606,6 @@ noise_filter <- function(laz,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) 
   print(paste0("It has taken ", time.taken, " to denoise your LAS file!"))
   
   return(las_final)  # Return the point cloud with segmentation and ground classification retained
-}
-
-displayIndex <- function(index) {
-  m <- leaflet::leaflet() %>%
-    leaflet::addTiles() %>%
-    leaflet::addScaleBar(position = "bottomleft") %>%
-    leaflet::addMeasure(
-      position = "topleft", 
-      primaryLengthUnit = "meters", 
-      primaryAreaUnit = "sqmeters",
-      activeColor = "#3D535D",
-      completedColor = "#7D4479")
-  
-  
-  # Transform index if it's not NULL
-  if (!is.null(index)) {
-    index <- sf::st_transform(index, 4326)
-  }
-  # Add index polygons if index is not NULL
-  if (!is.null(index)) {
-    m <- addPolygons(m, data = index, color = "black", fill = FALSE, group = "Index")
-  }
-  
-  # Add layers control with all layers turned off initially except the mask
-  overlayGroups <- c()
-  if (!is.null(index)) overlayGroups <- c(overlayGroups, "Index")
-  
-  m <- addLayersControl(m, overlayGroups = overlayGroups, options = layersControlOptions(collapsed = FALSE))
-  
-  # Hide all layers except the mask
-  m <- showGroup(m, "Index")
-  
-  return(m)
 }
 
 diff_values <- function(raster) {

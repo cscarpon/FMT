@@ -21,13 +21,23 @@
     #Server logic to accept the directories and plot the metadata
     # Non-reactive value to store the data directory path
     # Define the default paths
+    
+    output$photo <- renderImage({
+      list(
+        src = file.path("./www/CF.png"),
+        contentType = "image/png",
+        width = 700,
+        height = 600
+      )
+    }, deleteFile = FALSE)
+    
     data_default <- paste0(getwd(), "/data/")
     save_drive <- paste0(getwd(), "/saves/")
     
     # Call the function to create directories if they don't exist
     create_directories(data_default, save_drive)
     
-    rv <- reactiveValues(console_output = list(messages = "Welcome to FMT"))
+    rv <- reactiveValues(console_output = list(messages = "Welcome to CF"))
     
     output$console_output <- renderUI({
       lapply(seq_along(rv$console_output), function(i) {
@@ -107,71 +117,99 @@
       # Ensure the selections are made
       req(input$selected_source, input$selected_target, input$selected_buildings, rv$metadata)
       
-      laz_data <- rv$metadata %>%
-        dplyr::filter(grepl("\\.laz$|\\.las$", file_path)) %>%
-        dplyr::select(file_path, file_name)
-      
-      source_laz <- input$selected_source
-      target_laz <- input$selected_target
-      buildings_shape <- input$selected_buildings
-      
-      # Match source_laz and target_laz to their corresponding paths
-      source_path <- laz_data %>%
-        dplyr::filter(file_name == source_laz) %>%
-        dplyr::pull(file_path)
-      
-      # Match laz_name1 and laz_name2 to their corresponding paths
-      target_path <- laz_data %>%
-        dplyr::filter(file_name == target_laz)  %>%
-        dplyr::pull(file_path)
-      
-      # Filter for footprint files
-      build_path <- rv$metadata %>%
-        dplyr::filter(file_name == buildings_shape) %>%
-        dplyr::pull(file_path)
-
-      # Retrieve the file paths from the selections
-      las_path1 <- normalizePath(source_path, winslash = "/")
-      las_path2 <- normalizePath(target_path, winslash = "/")
-      build_path <- normalizePath(build_path, winslash = "/")
-      
-      # Adding the footprints to the RV
-      
-      rv$footprints <- sf::st_read(build_path)
+      if (tools::file_ext(input$selected_source) == "rds") {
+        r_data <- rv$metadata %>%
+          dplyr::filter(grepl("\\.rds", file_path)) %>%
+          dplyr::select(file_path, file_name)
+        
+        source_rd <- input$selected_source
+        target_rd <- input$selected_target
+        
+        # Match source_laz and target_laz to their corresponding paths
+        source_path <- r_data %>%
+          dplyr::filter(file_name == source_rd) %>%
+          dplyr::pull(file_path)
+        
+        # Match laz_name1 and laz_name2 to their corresponding paths
+        target_path <- r_data %>%
+          dplyr::filter(file_name == target_rd)  %>%
+          dplyr::pull(file_path)
+        
+        # Retrieve the file paths from the selections
+        rd_path1 <- normalizePath(source_path, winslash = "/")
+        rd_path2 <- normalizePath(target_path, winslash = "/")
+        
+        showModal(modalDialog("Loading spatial container", footer = NULL))
+        
+        rv$sc1 <- load(rd_path1)
+        rv$sc2 <- load(rd_path2)
+        removeModal()
+      } else {
+        laz_data <- rv$metadata %>%
+          dplyr::filter(grepl("\\.laz$|\\.las$", file_path)) %>%
+          dplyr::select(file_path, file_name)
+        
+        source_laz <- input$selected_source
+        target_laz <- input$selected_target
+        buildings_shape <- input$selected_buildings
+        
+        # Match source_laz and target_laz to their corresponding paths
+        source_path <- laz_data %>%
+          dplyr::filter(file_name == source_laz) %>%
+          dplyr::pull(file_path)
+        
+        # Match laz_name1 and laz_name2 to their corresponding paths
+        target_path <- laz_data %>%
+          dplyr::filter(file_name == target_laz)  %>%
+          dplyr::pull(file_path)
+        
+        # Filter for footprint files
+        build_path <- rv$metadata %>%
+          dplyr::filter(file_name == buildings_shape) %>%
+          dplyr::pull(file_path)
   
-      showModal(modalDialog("Initializing LAS and Index for PC 1", footer = NULL))
-      
-      # Process the source point cloud
-      if (!is.null(las_path1)) {
-        sc1 <- spatial_container$new(as.character(las_path1))
-        sc1$set_crs(rv$crs)
-        rv$sc1 <- sc1
+        # Retrieve the file paths from the selections
+        las_path1 <- normalizePath(source_path, winslash = "/")
+        las_path2 <- normalizePath(target_path, winslash = "/")
+        build_path <- normalizePath(build_path, winslash = "/")
+        
+        # Adding the footprints to the RV
+        
+        rv$footprints <- sf::st_read(build_path)
+    
+        showModal(modalDialog("Initializing LAS and Index for PC 1", footer = NULL))
+        
+        # Process the source point cloud
+        if (!is.null(las_path1)) {
+          sc1 <- spatial_container$new(as.character(las_path1))
+          sc1$set_crs(rv$crs)
+          rv$sc1 <- sc1
+        }
+        
+        new_message <- capture_output(print(rv$sc1$LPC))
+        add_message(new_message, rv)
+        
+        showModal(modalDialog("Initializing LAS and Index for PC 2", footer = NULL))
+        
+        add_message("Initializing the Target point cloud", rv)
+        
+        # Process the target point cloud
+        if (!is.null(las_path2)) {
+          sc2 <- spatial_container$new(as.character(las_path2))
+          sc2$set_crs(rv$crs)
+          rv$sc2 <- sc2  
+        }
+        new_message <- capture_output(print(rv$sc2$LPC))
+        add_message(new_message, rv)
+        
+        updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
+        
+        output$leafletmap <- renderLeaflet({
+          displayIndex(sc1$index)
+        })
+        
+        removeModal()
       }
-      
-      new_message <- capture_output(print(rv$sc1$LPC))
-      add_message(new_message, rv)
-      
-      showModal(modalDialog("Initializing LAS and Index for PC 2", footer = NULL))
-      
-      add_message("Initializing the Target point cloud", rv)
-      
-      # Process the target point cloud
-      if (!is.null(las_path2)) {
-        sc2 <- spatial_container$new(as.character(las_path2))
-        sc2$set_crs(rv$crs)
-        rv$sc2 <- sc2  
-      }
-      new_message <- capture_output(print(rv$sc2$LPC))
-      add_message(new_message, rv)
-      
-      updateSelectInput(session, "io_obj", choices = c("sc1" = "sc1", "sc2" = "sc2"))
-      
-      output$leafletmap <- renderLeaflet({
-        displayIndex(sc1$index)
-      })
-      
-      removeModal()
-      
      })
     # Server logic to to create masks for both PCs on the source and target point clouds
     
@@ -190,7 +228,7 @@
       showModal(modalDialog("Creating mask for Target PC", footer = NULL))
       
       mask_target <- mask_pc(rv$sc2$LPC)
-      rv$sc2$mask <- sf::st_transform(mask_source, crs = sf::st_crs(rv$sc2$LPC))
+      rv$sc2$mask <- sf::st_transform(mask_target, crs = sf::st_crs(rv$sc2$LPC))
       
       removeModal()
     })
@@ -232,7 +270,6 @@
       
       removeModal()
     })
-    
     
     # Server logic to run ICP on the source and target point clouds
     
@@ -386,7 +423,6 @@
       
     })
     
-
     observeEvent(input$align_rasters, {
       req(rv$sc1, rv$sc2, rv$processing)
       new_message <- "Running Raster Alignment"
@@ -554,53 +590,75 @@
  #Saving the xyz from the PCC
  
   observeEvent(input$save_las, {
-    req(selected_las(), rv$out_dir)  
-    las <- selected_las()  
+    req(rv$sc1, rv$sc2, rv$out_dir)
     
-    if (!is.null(las$filepath)) {
-      filepath <- las$filepath
-      filename <- basename(filepath)
-      filesplit <- strsplit(filename, "\\.")[[1]]
-      final_name <- filesplit[1]
-      out_dir <- rv$out_dir
-      path <- paste0(out_dir, "/", final_name, ".laz")
-      las$save_las(path)
-      print(paste("LAS file saved to:", path))
-    } else {
-      print("No file path found for saving LAS.")
-    }
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    out_dir <- rv$out_dir
+    path <- paste0(out_dir, "/", file_name, ".laz")
+    rv$sc1$save_las(path)
+    
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name , ".laz")
+    rv$sc2$save_las(path)
+    
+  })
+  
+  # saving the spatial container
+  
+  observeEvent(input$save_sc, {
+    req(rv$sc1, rv$sc2, rv$out_dir)
+    
+    # saving sc1
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    out_dir <- rv$out_dir
+    path <- paste0(out_dir, "/", file_name, ".rds")
+    rv$sc1$save_sc(path)
+    
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name, ".rds")
+    rv$sc2$save_sc(path)
+    
   })
  
   observeEvent(input$save_dtm, {
+    req(rv$sc1, rv$sc2, rv$out_dir)
     
-    # Ensure selected_las() is not NULL
-    req(selected_las(), rv$out_dir)
-    
-    filepath <- selected_las()$filepath
-    filename <- basename(filepath)
-    filesplit <- strsplit(filename, "\\.")[[1]]
-    final_name <- filesplit[1]
+    # saving sc1
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
     out_dir <- rv$out_dir
-    path <- paste0(out_dir, "/", final_name, "_DTM.tif")
+    path <- paste0(out_dir, "/", file_name, "_dtm.tif")
+    rv$sc1$save_dtm(path)
     
-    selected_las()$save_dtm(path)
-    print(paste("DTM file saved to:", path))
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name, "_dtm.tif")
+    rv$sc2$save_dtm(path)
+
   })
  
   observeEvent(input$save_chm, {
+    req(rv$sc1, rv$sc2, rv$out_dir)
     
-    # Ensure selected_las() is not NULL
-    req(selected_las(), rv$out_dir)  
-    
-    filepath <- selected_las()$filepath
-    filename <- basename(filepath)
-    filesplit <- strsplit(filename, "\\.")[[1]]
-    final_name <- filesplit[1]
+    # saving sc1
+    filename <- rv$sc1$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
     out_dir <- rv$out_dir
-    path <- paste0(out_dir, "/", final_name, "_CHM.tif")
+    path <- paste0(out_dir, "/", file_name, "_chm.tif")
+    rv$sc1$save_chm(path)
     
-    selected_las()$save_chm(path)
-    print(paste("CHM file saved to:", path))
+    #saving sc2
+    filename <- rv$sc2$filename
+    file_name <- stringr::str_split(filename, "\\.")[[1]][1]
+    path <- paste0(out_dir, "/", file_name, "_chm.tif")
+    rv$sc2$save_chm(path)
   })
  
   observeEvent(input$save_mask, {

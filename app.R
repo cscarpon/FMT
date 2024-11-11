@@ -1,5 +1,4 @@
 # Run this script to start the FMT
-
 source("global.R")
 source("server.R")
 source("r/functions.R")

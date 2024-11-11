@@ -1,15 +1,15 @@
 # Define the UI
 ui <- navbarPage(
-  title = "Forest Monitoring Tool (FMT)",
+  title = "CloudFlux (CF)",
   
   # First tab: Introduction
   tabPanel(
     title = "Introduction",
     fluidPage(
-      h2("Welcome to the Forest Monitoring Tool (FMT)"),
-      p("The FMT is designed to help users process, analyze, and visualize LiDAR data. 
+      h2("Welcome to CloudFlux (CF)"),
+      p("CF is designed to help users process, analyze, and visualize LiDAR data. 
        You can upload point cloud data in LAS or LAZ format, process Digital Terrain Models (DTMs), 
-       Canopy Height Models (CHMs), and align point clouds for change detection. 
+       Canopy Height Models (CHMs), and align point clouds for change detection. This tool is built on the efforts of the open source and open access commnitee
        Below are the steps to use the tool:"),
       tags$ul(
         tags$li("Step 1: Upload the source and target point clouds."),
@@ -18,13 +18,13 @@ ui <- navbarPage(
         tags$li("Step 4: Save the processed data and download it.")
       ),
       # Add the image
-      tags$img(src = "C:\\Users\\cscar\\FMT\\www\\FMT.png", height = "400px", width = "100%", alt = "FMT Overview Image")
+      imageOutput("photo")
     )
   ),
   
-  # Second tab: FMT UI
+  # Second tab: CF UI
   tabPanel(
-    title = "FMT Tool",
+    title = "CloudFlux",
     fluidPage(
       sidebarLayout(
         sidebarPanel(
@@ -42,7 +42,7 @@ ui <- navbarPage(
             column(6, selectInput("selected_buildings", "Select Your Building Footprints (.shp)", choices = NULL))
           ),
           fluidRow(
-            column(12, actionButton("PC_confirm", "Confirm Point Cloud Selections", width = "100%"))
+            column(12, actionButton("PC_confirm", "Confirm Point Cloud Selections",height = "auto", width = "100%"))
           ),
           fluidRow(
             column(6, actionButton("run_mask", "Generate Mask", width = "100%")),
@@ -68,6 +68,7 @@ ui <- navbarPage(
             column(6, actionButton("save_dtm", "Save DTM", width = "100%", title = "Save the current DTM")),
             column(6, actionButton("save_chm", "Save CHM", width = "100%", title = "Save the current CHM")),
             column(6, actionButton("save_mask", "Save mask", width = "100%", title = "Save the current mask")),
+            column(6, actionButton("save_SC", "Save Spatial Containers", width = "100%", title = "The modified spatial containers")),
             column(6, downloadButton("downloadData", "Save data", width = "100%", title = "Save all the data in the out directory"))
           ),
           tags$hr(),
