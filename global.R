@@ -13,6 +13,6 @@ library(leaflet.extras) # used for dynamic legends
 library(htmlwidgets)
 library(reticulate) # python in r
 library(zip) # zip files
-
+library(leafem)
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)

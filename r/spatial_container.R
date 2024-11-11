@@ -138,13 +138,13 @@ spatial_container <- setRefClass(
       lidR::writeLAS(.self$LPC, path)
     },
     save_dtm = function(path) {
-      terra::writeRaster(.self$DTM, path, overwrite = TRUE)
+      terra::writeRaster(.self$DTM, path, gdal = c("COMPRESS=LZW"), overwrite = TRUE)
     },
     save_chm = function(path) {
-      terra::writeRaster(.self$CHM, path, overwrite = TRUE)
+      terra::writeRaster(.self$CHM, path, gdal = c("COMPRESS=LZW"), overwrite = TRUE)
     },
-    save_pc = function(path) {
-      save(.self, file = path, overwrite = TRUE)
+    save_sc = function(path) {
+      save(.self, file = path)
     }
   )
 )
