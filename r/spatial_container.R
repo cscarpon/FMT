@@ -7,7 +7,9 @@ spatial_container <- setRefClass(
     CHM_raw = "SpatRaster",
     DTM = "SpatRaster",
     DTM_raw = "SpatRaster",
+    index = "sfc",
     mask = "sf",
+    buildings = "sf",
     filepath =  "character",
     filename = "character"
   ),
@@ -47,25 +49,33 @@ spatial_container <- setRefClass(
         #append the new las file to the list
         .self$LPC <<- las_xyz
         
-        #Append the mask 
-        .self$mask <<- mask_pc(las_xyz)
+        #create and append the extent to the index
+        las_sf <- sf::st_as_sf(las@data, coords = c("X", "Y"))
+        
+        #Get the bounding box
+        las_extent <- sf::st_as_sfc(sf::st_bbox(las_sf))
+        
+         sf::st_crs(las_extent) <- sf::st_crs(las)
+        
+         .self$index <<-  las_extent
         
       } else if (ext == "las" || ext == "laz") {
         
         #Read the las files
         las <- lidR::readLAS(file_path)
         
-        # Check for ground classifications (value = 2)
-        if (!any(las$Classification == 2)) {
-          # No ground classifications found, classify ground
-          las <- classify_ground(las, algorithm = pmf(ws = 5, th = 3))
-        }
-        
         #append the new las file to the list
         .self$LPC <<-  las
         
-        #Append the mask 
-        .self$mask <<- mask_pc(las)
+        #create and append the extent to the index
+        
+        las_sf <- sf::st_as_sf(las@data, coords = c("X", "Y"))
+        
+        # Step 3: Get the bounding box
+        las_extent <- sf::st_as_sfc(sf::st_bbox(las_sf))
+        sf::st_crs(las_extent) <- sf::st_crs(las)
+        
+        .self$index <<-  las_extent
       }
     },
     set_crs = function(crs) {
@@ -76,20 +86,13 @@ spatial_container <- setRefClass(
       
       # If there's an existing CRS
       if (is.null(current_crs)) {
-        
         cat("The LPC does not have an associated CRS.\n")
         cat("Assigning and transforming to the new CRS...\n")
-        sf::st_crs(.self$LPC) <- crs
+        sf::st_crs(.self$LPC) <- 4326
+        sf::st_crs(.self$mask) <- 4326
+        sf::st_crs(.self$index) <- 4326
         .self$LPC <- sf::st_transform(.self$LPC, crs)
-        .self$mask <- sf::st_transform(.self$mask, crs)
-        .self$xyz <- data.frame(
-          X = .self$LPC@data$X,
-          Y = .self$LPC@data$Y,
-          Z = .self$LPC@data$Z,
-          ReturnNumber = .self$LPC@data$ReturnNumber,
-          NumberOfReturns = .self$LPC@data$NumberOfReturns,
-          Classification = .self$LPC@data$Classification)
-        
+        .self$index <- sf::st_transform(.self$index, crs)
       } 
       if (current_crs == sf::st_crs(crs)) {
         cat("The new CRS is the same as the current CRS. No change needed.\n")
@@ -97,14 +100,7 @@ spatial_container <- setRefClass(
         cat("Changing and transforming to the new CRS...\n")
         sf::st_crs(.self$LPC) <- crs
         .self$LPC <- sf::st_transform(.self$LPC, crs)
-        .self$mask <- sf::st_transform(.self$mask, crs)
-        .self$xyz <- data.frame(
-          X = .self$LPC@data$X,
-          Y = .self$LPC@data$Y,
-          Z = .self$LPC@data$Z,
-          ReturnNumber = .self$LPC@data$ReturnNumber,
-          NumberOfReturns = .self$LPC@data$NumberOfReturns,
-          Classification = .self$LPC@data$Classification)
+        .self$index <- sf::st_transform(.self$index, crs)
       }
     },
     get_data = function() {
@@ -117,7 +113,8 @@ spatial_container <- setRefClass(
       write.table(.self$xyz[,c("X", "Y", "Z")], path, row.names = FALSE, col.names = FALSE, quote = FALSE, sep = " ")
     },
     to_dtm = function(resolution = 1) {
-      dtm <- lidR::rasterize_terrain(.self$LPC, resolution, tin())
+      ground <- lidR::filter_ground(.self$LPC)
+      dtm <- lidR::rasterize_terrain(ground, resolution, tin())
       .self$DTM_raw <- dtm
       dtm_clip <- terra::mask(dtm, terra::vect(.self$mask))
       .self$DTM  <- dtm_clip
@@ -125,8 +122,9 @@ spatial_container <- setRefClass(
     to_chm = function(resolution = 1) {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
-      nlas <- lidR::normalize_height(.self$LPC, .self$DTM)
-      chm <- lidR::rasterize_canopy(nlas, resolution, p2r(0.2, na.fill = tin()))
+      no_buildings <- filter_poi(.self$LPC, Classification != 6)
+      nlas <- no_buildings - .self$DTM
+      chm <- rasterize_canopy(nlas, res = resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
       .self$CHM_raw <- clamp
@@ -140,13 +138,13 @@ spatial_container <- setRefClass(
       lidR::writeLAS(.self$LPC, path)
     },
     save_dtm = function(path) {
-      terra::writeRaster(.self$DTM, path, overwrite = TRUE)
+      terra::writeRaster(.self$DTM, path, gdal = c("COMPRESS=LZW"), overwrite = TRUE)
     },
     save_chm = function(path) {
-      terra::writeRaster(.self$CHM, path, overwrite = TRUE)
+      terra::writeRaster(.self$CHM, path, gdal = c("COMPRESS=LZW"), overwrite = TRUE)
     },
-    save_pc = function(path) {
-      save(.self, file = path, overwrite = TRUE)
+    save_sc = function(path) {
+      save(.self, file = path)
     }
   )
 )
