@@ -14,5 +14,6 @@ library(htmlwidgets)
 library(reticulate) # python in r
 library(zip) # zip files
 library(leafem)
+library(stringr)
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)

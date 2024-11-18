@@ -109,50 +109,81 @@ diff_classify <- function(earlier, later) {
     return(diff_class)
 }
 
+
+diff_numbers <- function(raster){
+  # Get the values of the raster
+  raster_values <- terra::values(raster)
+  
+  # Remove NA values if necessary
+  raster_values <- raster_values[!is.na(raster_values)]
+  
+  # Get the count of each class
+  class_counts <- table(raster_values)
+  
+  # Calculate the total number of cells
+  total_cells <- sum(class_counts)
+  
+  # Calculate the percentage of each class
+  class_percentages <- (class_counts / total_cells) * 100
+  
+  return(list(class_counts = class_counts, class_percentages = class_percentages))
+}
+
 #Calculate statistics for a raster and return a data frame to plot in ggplot2
 
 plot_stats <- function(difference_raster) {
-  rast_freq <- terra::freq(difference_raster)
-  rast_freq$area <- rast_freq$count * 0.5 # Square metres
+  # Get the values of the raster
+  raster_values <- terra::values(difference_raster)
   
-  # Handling NaN
-  rast_freq$value[is.nan(rast_freq$value)] <- "NaN"
+  # Remove NA values if necessary
+  raster_values <- raster_values[!is.na(raster_values)]
   
-  # Define class labels
-  class_labels <- c("Large Loss: > 10m loss",
-                    "Loss: 0.5m to 10m loss",
-                    "Minimal change: -0.5m to 0.5m",
-                    "Gain: 0.5m to 10m gain",
-                    "Large Gain: > 10m gain",
-                    "NaN")
+  # Get the count of each class
+  class_counts <- table(raster_values)
   
-  # Define class values
-  class_values <- c("1", "2", "3", "4", "5", "NaN")
+  # Calculate the total number of cells
+  total_cells <- sum(class_counts)
   
-  # Convert value to a factor
-  rast_freq$value <- factor(rast_freq$value, levels = class_values, labels = class_labels)
+  # Calculate the percentage of each class
+  class_percentages <- (class_counts / total_cells) * 100
   
-  # Plot the area column with different colors for each bar and a legend
-  ggplot(rast_freq, aes(x = value, y = area, fill = factor(value))) +
-    geom_bar(stat = "identity") +
+  # Define class labels (no wrapping, shorter labels to fit on one line)
+  class_labels <- c("Large decrease (>10m)",
+                    "Decrease (0.5m to 10m)",
+                    "Minimal change (-0.5m to 0.5m)",
+                    "Gain (0.5m to 10m)",
+                    "Large Gain (>10m)")
+  
+  # Create a data frame for plotting
+  plot_data <- data.frame(
+    class = factor(names(class_counts), levels = c("1", "2", "3", "4", "5")),
+    count = as.numeric(class_counts),
+    percentage = as.numeric(class_percentages)
+  )
+  
+  # Update factor levels for class to preserve the order
+  plot_data$class <- factor(plot_data$class, levels = c("1", "2", "3", "4", "5"), labels = class_labels)
+  
+  # Create the bar chart
+  ggplot(plot_data, aes(x = class, y = count, fill = class)) +
+    geom_bar(stat = "identity", color = "black") +
+    geom_text(aes(label = sprintf("%.1f%%", percentage)), vjust = -0.5, size = 4) + # Add percentages on top
     labs(x = "Loss and Gain", y = "Area (m^2)", fill = "Class") +
-    scale_x_discrete(labels=c('Large Loss', 'Loss', 'Minimal Change', 'Growth', 'Large Growth')) +
     ggtitle("Raster Statistics for Change Detection") +
     scale_fill_manual(
       values = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"),
-      labels = class_labels, 
-      drop = FALSE,
-      guide = guide_legend(ncol = 1) # Stack the legend items
+      drop = FALSE
     ) +
-    theme_minimal(base_size = 15) +  # Set a base size for the text
+    theme_minimal(base_size = 15) +
     theme(
       axis.title = element_text(size = 16, face = "bold"),
       axis.text = element_text(size = 14),
-      legend.title = element_text(size = 14, face = "bold"), # Reduced legend title size
-      legend.text = element_text(size = 12),  # Reduced legend text size
-      legend.key.size = unit(0.8, "cm"),  # Reduced legend key size
+      axis.text.x = element_text(size = 12), # Ensure x-axis labels are readable
+      legend.title = element_text(size = 12, face = "bold"), # Smaller legend title
+      legend.text = element_text(size = 10),  # Smaller legend text
+      legend.key.size = unit(0.6, "cm"),  # Smaller legend key size
       plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
-      legend.position = "right"  # Adjust the legend position if needed
+      legend.position = "right"
     ) +
     scale_y_continuous(labels = comma)
 }
@@ -211,10 +242,8 @@ transform_polygon_crs <- function(source_polygon, target_polygon, crs) {
 
 mask_pc <- function(pc) {
     
-    # Step 1:  Remove density to 1 point per square meter
     decimate <- lidR::decimate_points(pc, random(1))
     
-    # Step 2: Remove duplicate (X, Y) points
     unique_points <- decimate@data %>%
       dplyr::distinct(X, Y)  # Keep only unique X, Y pairs
     
@@ -225,34 +254,21 @@ mask_pc <- function(pc) {
     # Step 3: Convert the decimated points to an sf object
     coords_sf <- sf::st_as_sf(decimate@data[,c("X", "Y")], coords = c("X", "Y"), crs = lidR::projection(pc))
     
-    # Step 4: Buffer the points by 3 meters
-    buffered_points <- sf::st_buffer(coords_sf, dist = 3)
+    coords_vect <- terra::vect(coords_sf)
     
-    # Step 5: Union the buffered geometries into a single geometry
-    unioned_buffer <- sf::st_union(buffered_points)
+    raster_template <- terra::rast(ext(coords_vect), resolution = 3)
     
-    # Step 6: Apply a negative buffer (shrink by 3 meters)
-    final_polygon <- sf::st_buffer(unioned_buffer, dist = -3)
+    rasterized <- terra::rasterize(coords_vect, raster_template, field = NULL, fun = "count")
     
-    # Step 7: Ensure the polygon is valid
-    final_polygon <- sf::st_make_valid(final_polygon)
+    polygonized <- terra::as.polygons(rasterized, dissolve = TRUE)
     
-    # Step 8: Remove holes and simplify the final polygon
-    # Initialize an empty list to store the results
-    final_result <- list()
+    simplified_polygon <- terra::aggregate(polygonized)
     
-    # Iterate over each geometry in final_polygon
-    for (i in seq_along(final_polygon)) {
-      # Remove holes
-      no_holes <- nngeo::st_remove_holes(final_polygon[i])
-      # Append to the final result list
-      final_result[[i]] <- no_holes
-    }
+    no_holes <- nngeo::st_remove_holes(sf::st_as_sf(simplified_polygon))
     
-    # Combine all the results into a single sf object
-    final_sf <- do.call(sf::st_sfc, final_result)
-    final_sf <- rmapshaper::ms_simplify(final_sf, keep = 0.03, weighting = 2.0, keep_shapes = TRUE)
+    final_sf <- rmapshaper::ms_simplify(no_holes, keep = 0.8, weighting = 1, keep_shapes = TRUE)
     final_sf <- sf::st_as_sf(final_sf)
+    sf::st_crs(final_sf) <- sf::st_crs(pc)
     final_sf <- sf::st_transform(final_sf, crs = sf::st_crs(pc))
     
     return(final_sf)
@@ -313,12 +329,12 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   # Add CHM raster image if it's not NULL
   if (!is.null(chm_m)) {
     pal_chm <- colorNumeric("magma", domain = values(chm_m), na.color = "transparent")
-    m <- addRasterImage(m, chm_m, colors = pal_chm, group = "CHM", maxBytes = Inf, opacity = 1)
+    m <- addRasterImage(m, chm_m, colors = pal_chm, group = "nDSM", maxBytes = Inf, opacity = 1)
   }
   
   # Add chm_diff raster image with legend if it's not NULL
   if (!is.null(diff_round)) {
-    colors <- c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen")
+    colors <- c("darkorange", "orange","lightgrey", "lightgreen", "darkgreen")
     pal_diff <- colorNumeric(palette = colors, domain = values(diff_round), na.color = "transparent")
     
     m <- addRasterImage(m, diff_round, colors = pal_diff, group = "Diff", maxBytes = Inf, opacity = 1)
@@ -332,7 +348,7 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   # Add layers control with all layers turned off initially except the mask
   overlayGroups <- c()
   if (!is.null(dtm_m)) overlayGroups <- c(overlayGroups, "DTM")
-  if (!is.null(chm_m)) overlayGroups <- c(overlayGroups, "CHM")
+  if (!is.null(chm_m)) overlayGroups <- c(overlayGroups, "nDSM")
   if (!is.null(diff_round)) overlayGroups <- c(overlayGroups, "Diff")
   if (!is.null(mask)) overlayGroups <- c(overlayGroups, "Mask")
   
@@ -340,7 +356,7 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   
   # Hide all layers except the mask
   if (!is.null(dtm_m)) m <- hideGroup(m, "DTM")
-  if (!is.null(chm_m)) m <- hideGroup(m, "CHM")
+  if (!is.null(chm_m)) m <- hideGroup(m, "nDSM")
   if (!is.null(diff_round)) m <- hideGroup(m, "Diff")
   m <- showGroup(m, "Mask")
   
@@ -350,12 +366,12 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   }
   
   if (!is.null(chm_m)) {
-    m <- addLegend(m, pal = pal_chm, values = values(chm_m), position = "bottomright", title = "Canopy Height Model (m)", layerId = "chmLegend", opacity = 1)
+    m <- addLegend(m, pal = pal_chm, values = values(chm_m), position = "bottomright", title = "Normalized Height Model (m)", layerId = "chmLegend", opacity = 1)
   }
   
   if (!is.null(diff_round)) {
     labels <- c("< -10", "-10 to -0.5", "-0.5 to 0.5", "0.5 to 10", "> 10")
-    m <- addLegend(m, colors = colors, labels = labels, position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
+    m <- addLegend(m, colors = colors, labels = labels, position = "bottomright", title = "Change in Normalized Height Model (m)", layerId = "diffLegend", opacity = 1)
   }
   
   return(m)

@@ -24,10 +24,8 @@
     
     output$photo <- renderImage({
       list(
-        src = file.path("./www/CF.png"),
-        contentType = "image/png",
-        width = 700,
-        height = 600
+        src = file.path("./www/steps.png"),
+        contentType = "image/png"
       )
     }, deleteFile = FALSE)
     
@@ -358,7 +356,7 @@
         
         req(rv$sc1, rv$resolution)
       
-        new_message <- paste0("Generating CHM for Source")
+        new_message <- paste0("Generating nDSM for Source")
         add_message(new_message, rv)
         
         tryCatch({
@@ -367,7 +365,7 @@
         object_message <- capture_output(print(rv$sc1$CHM))
         add_message(object_message, rv)
         }, error = function(e){
-          new_message <- paste("Error in creating CHM:", e$message)
+          new_message <- paste("Error in creating nDSM:", e$message)
           add_message(new_message, rv)
       })
         
@@ -376,7 +374,7 @@
     observeEvent(input$chm2, {
     
       req(rv$sc2, rv$resolution)
-      new_message <- paste0("Generating CHM for Target")
+      new_message <- paste0("Generating nDSM for Target")
       add_message(new_message, rv)
     
       
@@ -386,7 +384,7 @@
         object_message <- capture_output(print(rv$sc2$CHM))
         add_message(object_message, rv)
         }, error = function(e) {
-          new_message <- paste("Error in creating CHM2:", e$message)
+          new_message <- paste("Error in creating nDSM for Target:", e$message)
           add_message(new_message, rv)
       })
     })
@@ -429,21 +427,21 @@
       add_message(new_message, rv)
       
       
-      if (rv$processing == "CHM") {
+      if (rv$processing == "nDSM") {
       
       tryCatch({
-        aligned_chm <- process_raster(source = rv$sc1$CHM_raw, target = rv$sc2$CHM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
+        aligned_nDSM <- process_raster(source = rv$sc1$CHM_raw, target = rv$sc2$CHM_raw, source_mask = rv$sc1$mask, target_mask = rv$sc2$mask, method = "bilinear")
         
-        rv$source_raster <- aligned_chm[[1]]
-        rv$target_raster <- aligned_chm[[2]]
-        rv$union_mask <- aligned_chm[[3]]
+        rv$source_raster <- aligned_nDSM[[1]]
+        rv$target_raster <- aligned_nDSM[[2]]
+        rv$union_mask <- aligned_nDSM[[3]]
 
         
         new_message <- "Raster Alignment Complete"
         add_message(new_message, rv)
         
       }, error = function(e){
-        new_message <- paste("Error in aligning CHMs:", e$message)
+        new_message <- paste("Error in aligning nDSM:", e$message)
         add_message(new_message, rv)
       })
       } else if (rv$processing == "DTM") {
@@ -498,7 +496,7 @@
         add_message(new_message, rv)
         
       }, error = function(e){
-        new_message <- paste("Error in Classifying CHMs:", e$message)
+        new_message <- paste("Error in Classifying nDSMs:", e$message)
         add_message(new_message, rv)
       })
     })
@@ -508,7 +506,8 @@
     observeEvent(input$plot_source, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc1$LPC)
-        lidR::plot(rv$sc1$LPC, bg = "white")
+        pc1_decimate <- lidR::decimate(rv$sc1$LPC, random(1))
+        lidR::plot(pc1_decimate, bg = "white")
         rglwidget()
       })
     })
@@ -518,7 +517,8 @@
     observeEvent(input$plot_target, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc2$LPC)
-        lidR::plot(rv$sc2$LPC, bg = "white")
+        pc2_decimate <- lidR::decimate(rv$sc2$LPC, random(1))
+        lidR::plot(pc2_decimate , bg = "white")
         rglwidget()
       })
     })
@@ -550,8 +550,8 @@
       
       if ("DTM" %in% input$leafletmap_groups) {
         legend <- "DTM"
-      } else if ("CHM" %in% input$leafletmap_groups) {
-        legend <- "CHM"
+      } else if ("nDSM" %in% input$leafletmap_groups) {
+        legend <- "nDSM"
       } else if ("Diff" %in% input$leafletmap_groups) {
         legend <- "Diff"
       }
@@ -565,16 +565,16 @@
           addLegend(pal = colorNumeric("magma", domain = values(rv$sc1$DTM), na.color = "transparent"), 
                     values = values(rv$sc1$DTM), position = "bottomright", title = "Digital Terrain Model (m)", 
                     layerId = "dtmLegend", opacity = 1)
-      } else if (rv$current_legend == "CHM") {
+      } else if (rv$current_legend == "nDSM") {
         leafletProxy("leafletmap") %>% clearControls() %>%
           addLegend(pal = colorNumeric("magma", domain = values(rv$sc1$CHM), na.color = "transparent"), 
-                    values = values(rv$sc1$CHM), position = "bottomright", title = "Canopy Height Model (m)", 
+                    values = values(rv$sc1$CHM), position = "bottomright", title = "Normalised Height Model (m)", 
                     layerId = "chmLegend", opacity = 1)
       } else if (rv$current_legend == "Diff") {
         leafletProxy("leafletmap") %>% clearControls() %>%
           addLegend(colors = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"), 
                     labels = c("< -10", "-10 to -0.5", "-0.5 to 0.5", "0.5 to 10", "> 10"), 
-                    position = "bottomright", title = "Change in Tree Height (m)", layerId = "diffLegend", opacity = 1)
+                    position = "bottomright", title = "Change in Normalized Surface Height (m)", layerId = "diffLegend", opacity = 1)
       }
     })
 
@@ -651,13 +651,13 @@
     filename <- rv$sc1$filename
     file_name <- stringr::str_split(filename, "\\.")[[1]][1]
     out_dir <- rv$out_dir
-    path <- paste0(out_dir, "/", file_name, "_chm.tif")
+    path <- paste0(out_dir, "/", file_name, "_ndsm.tif")
     rv$sc1$save_chm(path)
     
     #saving sc2
     filename <- rv$sc2$filename
     file_name <- stringr::str_split(filename, "\\.")[[1]][1]
-    path <- paste0(out_dir, "/", file_name, "_chm.tif")
+    path <- paste0(out_dir, "/", file_name, "_ndsm.tif")
     rv$sc2$save_chm(path)
   })
  
@@ -693,14 +693,13 @@
   )
   
   # Clean up uploaded files when the session ends, excluding base files
-  session$onSessionEnded(function() {
-    req(rv$out_dir)
-    base_files <- c("TTP_2015.laz", "TTP_2019.laz")
-    uploaded_files <- list.files(rv$out_dir, full.names = TRUE)
-    lapply(uploaded_files, function(file) {
-      if (file.exists(file) && !basename(file) %in% base_files) {
-        file.remove(file)
-      }
-    })
-  })
+  # session$onSessionEnded(function() {
+  #   base_files <- c("TTP_2015.laz", "TTP_2019.laz")
+  #   uploaded_files <- list.files(rv$out_dir, full.names = TRUE)
+  #   lapply(uploaded_files, function(file) {
+  #     if (file.exists(file) && !basename(file) %in% base_files) {
+  #       file.remove(file)
+  #     }
+  #   })
+  # })
 }

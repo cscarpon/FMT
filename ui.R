@@ -13,12 +13,20 @@ ui <- navbarPage(
        Below are the steps to use the tool:"),
       tags$ul(
         tags$li("Step 1: Upload the source and target point clouds."),
-        tags$li("Step 2: Run the desired functions, such as ICP Alignment or DTM/CHM generation."),
-        tags$li("Step 3: View the results on the Leaflet map or in 3D plots."),
-        tags$li("Step 4: Save the processed data and download it.")
+        tags$li("Step 2: denoise point clouds"),
+        tags$li("Step 3: Create Mask for Point Clouds"),
+        tags$li("Step 4: Conduct an ICP alignment between the source and target point cloud."),
+        tags$li("Step 5: Generate DTMs with the provided resolution."),
+        tags$li("Step 6: Align source and target rasters for change detection.."),
+        tags$li("Step 7: Process change detection between either nDSMs or DTMs."),
+        tags$li("Step 8: Generate raster statistics from the change detection layer."),
+        tags$li("Step 9: Visualize the outputs in both maps, 2D, and 3D plots.."),
       ),
+      tags$style(HTML(".responsive-img {max-width: 100%;height: auto;}")),
       # Add the image
-      imageOutput("photo")
+      div(class = "responsive-img",
+          imageOutput("photo")
+      )
     )
   ),
   
@@ -50,13 +58,13 @@ ui <- navbarPage(
             column(6, actionButton("run_icp", "ICP Alignment", width = "100%")),
             column(6, actionButton("dtm1", "Generate DTM for Source", width = "100%")),
             column(6, actionButton("dtm2", "Generate DTM for Target", width = "100%")),
-            column(6, actionButton("chm1", "Generate CHM for Source", width = "100%")),
-            column(6, actionButton("chm2", "Generate CHM for Target", width = "100%")),
+            column(6, actionButton("chm1", "Generate nDSM for Source", width = "100%")),
+            column(6, actionButton("chm2", "Generate nDSM for Target", width = "100%")),
           ),
           tags$hr(),
           h4("Post Processing"),
           fluidRow(
-            column(6, selectInput("selected_processing", "Select which raster types to align", choices = c("","DTM", "CHM"))),
+            column(6, selectInput("selected_processing", "Select which raster types to align", choices = c("","DTM", "nDSM"))),
             column(6, actionButton("align_rasters", "Align Rasters", width = "100%", title = "Aligns Source to Target Raster")),
             column(6, actionButton("classify_raster", "Classify Rasters", width = "100%", title = "Difference and Classify Rasters"))
           ),
@@ -66,7 +74,7 @@ ui <- navbarPage(
           fluidRow(
             column(6, actionButton("save_las", "Save LAS", width = "100%", title = "Save the current LAS object")),
             column(6, actionButton("save_dtm", "Save DTM", width = "100%", title = "Save the current DTM")),
-            column(6, actionButton("save_chm", "Save CHM", width = "100%", title = "Save the current CHM")),
+            column(6, actionButton("save_chm", "Save nDSM", width = "100%", title = "Save the current nDSM")),
             column(6, actionButton("save_mask", "Save mask", width = "100%", title = "Save the current mask")),
             column(6, actionButton("save_SC", "Save Spatial Containers", width = "100%", title = "The modified spatial containers")),
             column(6, downloadButton("downloadData", "Save data", width = "100%", title = "Save all the data in the out directory"))
