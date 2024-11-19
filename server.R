@@ -718,7 +718,7 @@
     
     # Delete specific files from in_dir (retain base files)
     if (dir.exists(in_dir)) {
-      base_files <- c("SB_15.laz", "SB_19.laz", "SB_Buildings.shp")
+      base_files <- c("SB_15_dec.laz", "SB_19_dec.laz", "SB_Buildings.shp", "SB_Buildings.dbf", "SB_Buildings.shx", "SB_Buildings.prj")
       uploaded_files <- list.files(in_dir, full.names = TRUE)
       print("Uploaded files at session end:")
       print(uploaded_files)
