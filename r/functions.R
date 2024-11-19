@@ -88,7 +88,7 @@ process_raster <- function(source, target, source_mask, target_mask,  method = "
   source <- terra::mask(source, union_vect)
   target <- terra::mask(target, union_vect)
 
-  return(list(source = source, target = target, mask = union_vect))
+  return(list(source = source, target = target, vect_mask = union_vect))
 }
 
 # Function to generate CHM and classify the differences
