@@ -7,29 +7,33 @@ ui <- navbarPage(
     title = "Introduction",
     fluidPage(
       h2("Welcome to CloudFlux (CF)"),
-      p("CF is designed to help users process, analyze, and visualize LiDAR data. 
-       You can upload point cloud data in LAS or LAZ format, process Digital Terrain Models (DTMs), 
-       Canopy Height Models (CHMs), and align point clouds for change detection. This tool is built on the efforts of the open source and open access commnitee
-       Below are the steps to use the tool:"),
+      tags$div(
+        style = "text-align: justify;", # Ensures the text fills the container and is justified
+        "CF is designed to visualize, process, and analyze point cloud data. It can ingest LAS or LAZ formats. CF will create Digital Terrain Models (DTMs) and normalized Digital Surface Models (nDSM) and align point clouds for change detection. User data uploaded to CF is not saved and does not persist in the application. CF is free for use and it was built on the efforts of the open-source and open-access communities.", tags$br(),
+        tags$br(),
+        tags$b("Disclaimer:"),"CF is an educational tool and is not intended to replace professional advice or certified data processing workflows.The outputs are provided 'as is,' with no guarantee of accuracy, completeness, or suitability for any specific purpose. The developers of CF are not liable for any errors, inaccuracies, or decisions made based on its use. Use at your own risk.", tags$br(),
+        tags$br(),
+        "Below are the steps to use the tool:", tags$br(),
+        tags$br()
+      ),
       tags$ul(
         tags$li("Step 1: Upload the source and target point clouds."),
-        tags$li("Step 2: denoise point clouds"),
+        tags$li("Step 2: Denoise point clouds."),
         tags$li("Step 3: Create Mask for Point Clouds"),
         tags$li("Step 4: Conduct an ICP alignment between the source and target point cloud."),
         tags$li("Step 5: Generate DTMs with the provided resolution."),
-        tags$li("Step 6: Align source and target rasters for change detection.."),
+        tags$li("Step 6: Align source and target rasters for change detection."),
         tags$li("Step 7: Process change detection between either nDSMs or DTMs."),
         tags$li("Step 8: Generate raster statistics from the change detection layer."),
-        tags$li("Step 9: Visualize the outputs in both maps, 2D, and 3D plots.."),
+        tags$li("Step 9: Visualize the outputs in both maps, 2D, and 3D plots."),
       ),
       tags$style(HTML(".responsive-img {max-width: 100%;height: auto;}")),
       # Add the image
       div(class = "responsive-img",
           imageOutput("photo")
+        )
       )
-    )
-  ),
-  
+    ),
   # Second tab: CF UI
   tabPanel(
     title = "CloudFlux",

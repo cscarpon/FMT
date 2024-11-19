@@ -506,7 +506,7 @@
     observeEvent(input$plot_source, {
       output$plot3D <- rgl::renderRglwidget({
         req(rv$sc1$LPC)
-        pc1_decimate <- lidR::decimate(rv$sc1$LPC, random(1))
+        pc1_decimate <- lidR::decimate_points(rv$sc1$LPC, random(1))
         lidR::plot(pc1_decimate, bg = "white")
         rglwidget()
       })
@@ -693,13 +693,51 @@
   )
   
   # Clean up uploaded files when the session ends, excluding base files
-  # session$onSessionEnded(function() {
-  #   base_files <- c("TTP_2015.laz", "TTP_2019.laz")
-  #   uploaded_files <- list.files(rv$out_dir, full.names = TRUE)
-  #   lapply(uploaded_files, function(file) {
-  #     if (file.exists(file) && !basename(file) %in% base_files) {
-  #       file.remove(file)
-  #     }
-  #   })
-  # })
+  session$onSessionEnded(function() {
+    print("Session ended")
+    
+    # Safely access reactive values
+    req(isolate(rv$in_dir), isolate(rv$out_dir))
+    in_dir <- isolate(rv$in_dir)
+    out_dir <- isolate(rv$out_dir)
+    
+    # Helper function to delete all files in a directory
+    delete_all_files <- function(dir) {
+      if (dir.exists(dir)) {
+        files <- list.files(dir, full.names = TRUE)
+        lapply(files, function(file) {
+          if (file.exists(file)) {
+            file.remove(file)
+          }
+        })
+        print(paste("Deleted all files in directory:", dir))
+      } else {
+        print(paste("Directory does not exist:", dir))
+      }
+    }
+    
+    # Delete specific files from in_dir (retain base files)
+    if (dir.exists(in_dir)) {
+      base_files <- c("SB_2015.laz", "SB_2019.laz", "SB_Buildings.shp")
+      uploaded_files <- list.files(in_dir, full.names = TRUE)
+      print("Uploaded files at session end:")
+      print(uploaded_files)
+      
+      lapply(uploaded_files, function(file) {
+        if (file.exists(file) && !basename(file) %in% base_files) {
+          result <- file.remove(file)
+          if (result) {
+            print(paste("Deleted file:", file))
+          } else {
+            warning(paste("Failed to delete file:", file))
+          }
+        }
+      })
+    } else {
+      warning("in_dir does not exist:", in_dir)
+    }
+    
+    # Delete all files in out_dir
+    delete_all_files(out_dir)
+  })
 }
