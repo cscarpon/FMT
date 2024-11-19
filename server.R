@@ -21,6 +21,7 @@
     #Server logic to accept the directories and plot the metadata
     # Non-reactive value to store the data directory path
     # Define the default paths
+    lidR::set_lidr_threads(8)
     
     output$photo <- renderImage({
       list(
