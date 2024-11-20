@@ -256,7 +256,7 @@ mask_pc <- function(pc) {
     
     coords_vect <- terra::vect(coords_sf)
     
-    raster_template <- terra::rast(ext(coords_vect), resolution = 3)
+    raster_template <- terra::rast(terra::ext(coords_vect), resolution = 3)
     
     rasterized <- terra::rasterize(coords_vect, raster_template, field = NULL, fun = "count")
     
