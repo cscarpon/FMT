@@ -8,11 +8,6 @@
       }
     ]
   },
-  "Python": {
-    "Version": "3.10.14",
-    "Type": "virtualenv",
-    "Name": "./renv/python/virtualenvs/renv-python-3.10"
-  },
   "Packages": {
     "BH": {
       "Package": "BH",
@@ -1602,7 +1597,7 @@
     },
     "sf": {
       "Package": "sf",
-      "Version": "1.0-16",
+      "Version": "1.0-18",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1621,11 +1616,11 @@
         "units",
         "utils"
       ],
-      "Hash": "ad57b543f7c3fca05213ba78ff63df9b"
+      "Hash": "801bec14b3bae0f37eef4d187ee0bb44"
     },
     "shiny": {
       "Package": "shiny",
-      "Version": "1.8.1.1",
+      "Version": "1.9.1",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1654,7 +1649,7 @@
         "withr",
         "xtable"
       ],
-      "Hash": "54b26646816af9960a4c64d8ceec75d6"
+      "Hash": "6a293995a66e12c48d13aa1f957d09c7"
     },
     "sourcetools": {
       "Package": "sourcetools",
@@ -1751,7 +1746,7 @@
     },
     "terra": {
       "Package": "terra",
-      "Version": "1.7-78",
+      "Version": "1.7-83",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1759,7 +1754,7 @@
         "Rcpp",
         "methods"
       ],
-      "Hash": "8f020def0792119cb98bd8f696dab22d"
+      "Hash": "fbeffe988419d292225a57cf9c284802"
     },
     "textshaping": {
       "Package": "textshaping",
