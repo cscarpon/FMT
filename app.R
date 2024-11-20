@@ -1,9 +1,9 @@
 # Run this script to start the FMT
-source("global.R")
-source("server.R")
-source("r/functions.R")
-source("r/spatial_container.R")
-source("r/meta_obj.R")
+source(file.path("./global.R"), local = TRUE)
+source(file.path("./server.R"), local =  TRUE)
+source(file.path("./r/functions.R"), local = TRUE)
+source(file.path("./r/spatial_container.R"), local = TRUE)
+source(file.path("./r/meta_obj.R"), local = TRUE)
 
 # Define the UI and server
 ui <- source("ui.R", local = TRUE)$value
