@@ -13,7 +13,6 @@ ui <- navbarPage(
         tags$br(),
         tags$b("Disclaimer:"),"CF is an educational tool and is not intended to replace professional advice or certified data processing workflows.The outputs are provided 'as is,' with no guarantee of accuracy, completeness, or suitability for any specific purpose. The developers of CF are not liable for any errors, inaccuracies, or decisions made based on its use. Use at your own risk.", tags$br(),
         tags$br(),
-<<<<<<< HEAD
         "Users can uploaded their own point clouds, or they can use the data for Sunnybrook Campus (SB_19.laz and SB_23.laz) which comes preloaded. Below are the steps to use the tool:", tags$br(),
         tags$br()
       ),
@@ -29,21 +28,6 @@ ui <- navbarPage(
         tags$li("Step 9: Align rasters."),
         tags$li("Step 10: Classify"),
         tags$li("Step 11: Visualize the outputs in both maps (Plot to Leaflet), 2D (plot statistics), and 3D plots (Plot Las)."),
-=======
-        "Below are the steps to use the tool:", tags$br(),
-        tags$br()
-      ),
-      tags$ul(
-        tags$li("Step 1: Upload the source and target point clouds."),
-        tags$li("Step 2: Denoise point clouds."),
-        tags$li("Step 3: Create Mask for Point Clouds"),
-        tags$li("Step 4: Conduct an ICP alignment between the source and target point cloud."),
-        tags$li("Step 5: Generate DTMs with the provided resolution."),
-        tags$li("Step 6: Align source and target rasters for change detection."),
-        tags$li("Step 7: Process change detection between either nDSMs or DTMs."),
-        tags$li("Step 8: Generate raster statistics from the change detection layer."),
-        tags$li("Step 9: Visualize the outputs in both maps, 2D, and 3D plots."),
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       ),
       tags$style(HTML(".responsive-img {max-width: 100%;height: auto;}")),
       # Add the image
