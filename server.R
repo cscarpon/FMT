@@ -353,14 +353,22 @@
 
     observeEvent(input$chm1, {
         
+<<<<<<< HEAD
         req(rv$sc1, rv$resolution, rv$footprints)
+=======
+        req(rv$sc1, rv$resolution)
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       
         new_message <- paste0("Generating nDSM for Source")
         add_message(new_message, rv)
         
         tryCatch({
         
+<<<<<<< HEAD
         rv$sc1$to_chm(resolution = rv$resolution, footprints = rv$footprints)
+=======
+        rv$sc1$to_chm(resolution = rv$resolution)
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
         object_message <- capture_output(print(rv$sc1$CHM))
         add_message(object_message, rv)
         }, error = function(e){
@@ -372,14 +380,22 @@
 
     observeEvent(input$chm2, {
     
+<<<<<<< HEAD
       req(rv$sc2, rv$resolution, rv$footprints)
+=======
+      req(rv$sc2, rv$resolution)
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       new_message <- paste0("Generating nDSM for Target")
       add_message(new_message, rv)
     
       
       tryCatch({
         
+<<<<<<< HEAD
         rv$sc2$to_chm(resolution = rv$resolution, footprints = rv$footprints)
+=======
+        rv$sc2$to_chm(resolution = rv$resolution)
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
         object_message <- capture_output(print(rv$sc2$CHM))
         add_message(object_message, rv)
         }, error = function(e) {
@@ -571,14 +587,23 @@
                     layerId = "chmLegend", opacity = 1)
       } else if (rv$current_legend == "Diff") {
         leafletProxy("leafletmap") %>% clearControls() %>%
+<<<<<<< HEAD
           addLegend(colors = c("#6cBD66", "#9AE696", "#f7f7f7", "#b2abd2", "#555599"), 
                     labels = c("> 10", "0.5 to 10", "-0.5 to 0.5",  "-10 to -0.5","< -10" ), 
+=======
+          addLegend(colors = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"), 
+                    labels = c("< -10", "-10 to -0.5", "-0.5 to 0.5", "0.5 to 10", "> 10"), 
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
                     position = "bottomright", title = "Change in Normalized Surface Height (m)", layerId = "diffLegend", opacity = 1)
       }
     })
 
  ## Save Buttons
  
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   # Selecting which SC to save
   selected_las <- reactive({
     req(input$io_obj)
@@ -716,7 +741,11 @@
     
     # Delete specific files from in_dir (retain base files)
     if (dir.exists(in_dir)) {
+<<<<<<< HEAD
       base_files <- c("SB_15_dec.laz", "SB_19_dec.laz", "SB_23_dec.laz", "SB_19.laz", "SB_23.laz", "SB_Buildings.shp", "SB_Buildings.dbf", "SB_Buildings.shx", "SB_Buildings.prj")
+=======
+      base_files <- c("SB_15_dec.laz", "SB_19_dec.laz", "SB_Buildings.shp", "SB_Buildings.dbf", "SB_Buildings.shx", "SB_Buildings.prj")
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       uploaded_files <- list.files(in_dir, full.names = TRUE)
       print("Uploaded files at session end:")
       print(uploaded_files)

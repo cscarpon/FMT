@@ -1,2 +1,5 @@
 (laz|las|xyz|csv|shp|tif|tiff|json)$ filter=lfs diff=lfs merge=lfs -text
+<<<<<<< HEAD
 *.RData filter=lfs diff=lfs merge=lfs -text
+=======
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6

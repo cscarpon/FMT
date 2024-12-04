@@ -8,11 +8,14 @@
       }
     ]
   },
+<<<<<<< HEAD
   "Python": {
     "Version": "3.11.7",
     "Type": "virtualenv",
     "Name": "./renv/python/virtualenvs/renv-python-3.10"
   },
+=======
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   "Packages": {
     "BH": {
       "Package": "BH",
@@ -1602,7 +1605,11 @@
     },
     "sf": {
       "Package": "sf",
+<<<<<<< HEAD
       "Version": "1.0-19",
+=======
+      "Version": "1.0-18",
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1621,11 +1628,19 @@
         "units",
         "utils"
       ],
+<<<<<<< HEAD
       "Hash": "fe02eec2f6b3ba0e24afe83d5ccfb528"
     },
     "shiny": {
       "Package": "shiny",
       "Version": "1.8.1.1",
+=======
+      "Hash": "801bec14b3bae0f37eef4d187ee0bb44"
+    },
+    "shiny": {
+      "Package": "shiny",
+      "Version": "1.9.1",
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1654,7 +1669,11 @@
         "withr",
         "xtable"
       ],
+<<<<<<< HEAD
       "Hash": "54b26646816af9960a4c64d8ceec75d6"
+=======
+      "Hash": "6a293995a66e12c48d13aa1f957d09c7"
+>>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
     },
     "sourcetools": {
       "Package": "sourcetools",
