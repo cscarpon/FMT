@@ -11,4 +11,3 @@ server <- source("server.R", local = TRUE)$value
 
 # Run the app
 shiny::shinyApp(ui = ui, server = server)
-
