@@ -119,7 +119,7 @@ spatial_container <- setRefClass(
       dtm_clip <- terra::mask(dtm, terra::vect(.self$mask))
       .self$DTM  <- dtm_clip
     },
-<<<<<<< HEAD
+    
     to_chm = function(resolution = 1, footprints) {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
@@ -141,18 +141,6 @@ spatial_container <- setRefClass(
       
       .self$CHM_raw <- chm_builds
       chm_clip <- terra::mask(chm_builds, terra::vect(.self$mask))
-=======
-    to_chm = function(resolution = 1) {
-      fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
-      w <- matrix(1, 3, 3)
-      no_buildings <- filter_poi(.self$LPC, Classification != 6)
-      nlas <- no_buildings - .self$DTM
-      chm <- rasterize_canopy(nlas, res = resolution, p2r(0.2, na.fill = tin()))
-      filled <- terra::focal(chm, w, fun = fill_na)
-      clamp <- terra::clamp(filled, lower = 0)
-      .self$CHM_raw <- clamp
-      chm_clip <- terra::mask(clamp, terra::vect(.self$mask))
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       .self$CHM <- chm_clip
     },
     save_mask = function(path) {

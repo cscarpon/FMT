@@ -148,19 +148,13 @@ plot_stats <- function(difference_raster) {
   class_percentages <- (class_counts / total_cells) * 100
   
   # Define class labels (no wrapping, shorter labels to fit on one line)
-<<<<<<< HEAD
+
   class_labels <- c("Large decrease (< -10m)",
                     "Decrease (-0.5m to -10m)",
                     "Minimal change (-0.5m to 0.5m)",
                     "Gain (0.5m to 10m)",
                     "Large Gain (> 10m)")
-=======
-  class_labels <- c("Large decrease (>10m)",
-                    "Decrease (0.5m to 10m)",
-                    "Minimal change (-0.5m to 0.5m)",
-                    "Gain (0.5m to 10m)",
-                    "Large Gain (>10m)")
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
   
   # Create a data frame for plotting
   plot_data <- data.frame(
@@ -173,43 +167,26 @@ plot_stats <- function(difference_raster) {
   plot_data$class <- factor(plot_data$class, levels = c("1", "2", "3", "4", "5"), labels = class_labels)
   
   # Create the bar chart
-<<<<<<< HEAD
   # Create the bar chart
   ggplot2::ggplot(plot_data, aes(x = class, y = count, fill = class)) +
-=======
-  ggplot(plot_data, aes(x = class, y = count, fill = class)) +
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
     geom_bar(stat = "identity", color = "black") +
     geom_text(aes(label = sprintf("%.1f%%", percentage)), vjust = -0.5, size = 4) + # Add percentages on top
     labs(x = "Loss and Gain", y = "Area (m^2)", fill = "Class") +
     ggtitle("Raster Statistics for Change Detection") +
     scale_fill_manual(
-<<<<<<< HEAD
       values = c("#555599", "#b2abd2",   "#f7f7f7", "#9AE696","#448F3F" )  ,  # Updated colors
-=======
-      values = c("darkorange", "orange", "lightgrey", "lightgreen", "darkgreen"),
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       drop = FALSE
     ) +
     theme_minimal(base_size = 15) +
     theme(
       axis.title = element_text(size = 16, face = "bold"),
       axis.text = element_text(size = 14),
-<<<<<<< HEAD
       axis.text.x = element_text(size = 12, angle = 45, hjust = 1),  # Rotate labels 45 degrees
-=======
-      axis.text.x = element_text(size = 12), # Ensure x-axis labels are readable
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
       legend.title = element_text(size = 12, face = "bold"), # Smaller legend title
       legend.text = element_text(size = 10),  # Smaller legend text
       legend.key.size = unit(0.6, "cm"),  # Smaller legend key size
-      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
-<<<<<<< HEAD
-      legend.position = "right") +
-=======
-      legend.position = "right"
-    ) +
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5), legend.position = "right") +
     scale_y_continuous(labels = comma)
 }
 
@@ -299,11 +276,8 @@ mask_pc <- function(pc) {
     return(final_sf)
 }
 
-<<<<<<< HEAD
+
 displayMap <- function(dtm, chm, chm_diff, area_mask) {
-=======
-displayMap <- function(dtm, chm, chm_diff, mask) {
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   m <- leaflet::leaflet() %>%
     leaflet::addTiles() %>%
     leaflet::addScaleBar(position = "bottomleft") %>%
@@ -316,7 +290,6 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
     # Add north arrow as an image
     # leafem::addLogo(file.path("./www/northNA.png"), src = "local", position = "topleft", width = 50, height = 50)
   # Transform mask if it's not NULL
-<<<<<<< HEAD
   if (!is.null(area_mask)) {
     area_mask <- terra::project(area_mask, "EPSG:4326")
   }
@@ -325,16 +298,6 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   if (!is.null(dtm) && !is.null(area_mask)) {
     dtm_m <- terra::project(dtm, "EPSG:4326")
     dtm_m <- terra::mask(dtm_m, area_mask)
-=======
-  if (!is.null(mask)) {
-    mask <- terra::project(mask, "EPSG:4326")
-  }
-  
-  # Mask and project DTM if it's not NULL and mask is not NULL
-  if (!is.null(dtm) && !is.null(mask)) {
-    dtm_m <- terra::project(dtm, "EPSG:4326")
-    dtm_m <- terra::mask(dtm_m, mask)
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   } else if (!is.null(dtm)) {
     dtm_m <- terra::project(dtm, "EPSG:4326")
   } else {
@@ -342,15 +305,11 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   }
   
   # Mask and project CHM if it's not NULL and mask is not NULL
-<<<<<<< HEAD
+
   if (!is.null(chm) && !is.null(area_mask)) {
     chm_m <- terra::project(chm, "EPSG:4326")
     chm_m <- terra::mask(chm_m, area_mask)
-=======
-  if (!is.null(chm) && !is.null(mask)) {
-    chm_m <- terra::project(chm, "EPSG:4326")
-    chm_m <- terra::mask(chm_m, mask)
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
   } else if (!is.null(chm)) {
     chm_m <- terra::project(chm, "EPSG:4326")
   } else {
@@ -380,25 +339,15 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   
   # Add chm_diff raster image with legend if it's not NULL
   if (!is.null(diff_round)) {
-<<<<<<< HEAD
     colors <- c("#555599", "#b2abd2",   "#f7f7f7", "#9AE696","#448F3F")      # Updated colors
-=======
-    colors <- c("darkorange", "orange","lightgrey", "lightgreen", "darkgreen")
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
     pal_diff <- colorNumeric(palette = colors, domain = values(diff_round), na.color = "transparent")
-    
+  
     m <- addRasterImage(m, diff_round, colors = pal_diff, group = "Diff", maxBytes = Inf, opacity = 1)
   }
   
-<<<<<<< HEAD
   # Add mask polygons if area_mask is not NULL
   if (!is.null(area_mask)) {
     m <- addPolygons(m, data = st_as_sf(area_mask, crs = 4326), color = "black", fill = FALSE, group = "Mask")
-=======
-  # Add mask polygons if mask is not NULL
-  if (!is.null(mask)) {
-    m <- addPolygons(m, data = st_as_sf(mask, crs = 4326), color = "black", fill = FALSE, group = "Mask")
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   }
   
   # Add layers control with all layers turned off initially except the mask
@@ -406,11 +355,7 @@ displayMap <- function(dtm, chm, chm_diff, mask) {
   if (!is.null(dtm_m)) overlayGroups <- c(overlayGroups, "DTM")
   if (!is.null(chm_m)) overlayGroups <- c(overlayGroups, "nDSM")
   if (!is.null(diff_round)) overlayGroups <- c(overlayGroups, "Diff")
-<<<<<<< HEAD
   if (!is.null(area_mask)) overlayGroups <- c(overlayGroups, "Mask")
-=======
-  if (!is.null(mask)) overlayGroups <- c(overlayGroups, "Mask")
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   
   m <- addLayersControl(m, overlayGroups = overlayGroups, options = layersControlOptions(collapsed = FALSE))
   
@@ -535,18 +480,14 @@ count_time <- function(expr) {
   return(output)  # Return the output from the evaluated expression
 }
 
-<<<<<<< HEAD
 noise_filter_buildings <- function(laz, area_mask, footprint,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) {
-=======
-noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) {
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
   
   start.time <- Sys.time()
   
   # Step 1: Create a unique PointID in the original LAS
   laz@data$PointID <- seq_len(nrow(laz@data))
   
-<<<<<<< HEAD
   if (sf::st_crs(area_mask) != sf::st_crs(laz)) {
     print("Transforming footprint to mask CRS")
     area_mask <- sf::st_transform(area_mask, crs = sf::st_crs(laz))
@@ -554,8 +495,6 @@ noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3
     print("CRS match")
   }
   
-=======
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   if (sf::st_crs(footprint) != sf::st_crs(laz)) {
     print("Transforming footprint to mask CRS")
     footprint <- sf::st_transform(footprint, crs = sf::st_crs(laz))
@@ -563,19 +502,8 @@ noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3
     print("CRS match")
   }
   
-<<<<<<< HEAD
+
   diff_mask <- sf::st_difference(area_mask, footprint)
-=======
-  
-  if (sf::st_crs(mask) != sf::st_crs(laz)) {
-    print("Transforming footprint to mask CRS")
-    footprint <- sf::st_transform(mask, crs = sf::st_crs(laz))
-  } else {
-    print("CRS match")
-  }
-  
-  diff_mask <- sf::st_difference(mask, footprint)
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   
   if (sf::st_crs(diff_mask) != sf::st_crs(laz)) {
     print("Transforming mask to las CRS")
@@ -584,18 +512,8 @@ noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3
     print("CRS match")
   }
   
-<<<<<<< HEAD
   print("Clipping Buildings")
-=======
-  
-  print("Clipping Buildings")
-  buildings <- lidR::clip_roi(laz, footprint)
-  
-  print("Apply Classification")
-  buildings@data$Classification <- 6
-  
-  # Step 3: Clip the LiDAR points that intersect with the building footprints
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
   las_no_buildings <- lidR::clip_roi(laz, diff_mask)
   
   print("removing noise")
@@ -609,53 +527,11 @@ noise_filter_buildings <- function(laz, mask, footprint,  k_sor1 = 5, m_sor1 = 3
   las_fix2 <- lidR::filter_poi(las_fix2, Classification != 18)  # Remove noise points
   rm(las_fix1)
   
-<<<<<<< HEAD
-=======
-  print("Classifying ground")
-  
-  # Step 3: Classify ground points using the 
-  las_fix2 <- lidR::classify_ground(las_fix2, algorithm = csf())
-  
-  ground_points <- lidR::filter_ground(las_fix2)
-  
-  # las_clean contains only non-ground points
-  las_clean <- lidR::filter_poi(las_fix2, Classification != 2)  # Non-ground
-  
-  print("removing cables")
-  # Step 5: Segment transmission lines (Cables)
-  las_clean1 <- lidR::segment_shapes(las_clean, shp_line(k = 5, th1 = 30), "Cables")
-  
-  # Step 6: Join back 'Cables' classification to the original las_fix (including ground points)
-  las_fix2@data <- dplyr::left_join(las_fix2@data, las_clean1@data[, c("PointID", "Cables")], by = "PointID")
-  
-  # Remove Transmission Lines from las_clean for the next segmentation
-  las_clean2 <- lidR::filter_poi(las_clean1, Cables == "FALSE")
-  
-  print("removing poles")
-  
-  # Step 7: Segment vertical poles
-  las_clean3 <- lidR::segment_shapes(las_clean2, shp_vline(th1 = 5, k = 4), "Poles")
-  las_fix2@data <- dplyr::left_join(las_fix2@data, las_clean3@data[, c("PointID", "Poles")], by = "PointID")
-  rm(las_clean2)
-  
-  las_clean3 <- lidR::filter_poi(las_clean3, Poles == "FALSE")
-  
-  # Step 12: Filter out all points classified as Cables, Poles, Walls, or Roofs (preserve ground points)
-  
-  las_clean3@data <- las_clean3@data[, -c("Cables", "Poles")]
-  
-  las_final <- rbind(buildings, ground_points, las_clean3)
-  
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
   end.time <- Sys.time()
   time.taken <- end.time - start.time
   print(paste0("It has taken ", time.taken, " to denoise your LAS file!"))
-  
-<<<<<<< HEAD
   return(las_fix2)  # Return the point cloud with segmentation and ground classification retained
-=======
-  return(las_final)  # Return the point cloud with segmentation and ground classification retained
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
 }
 
 noise_filter <- function(laz,  k_sor1 = 5, m_sor1 = 3, k_sor2 = 20, m_sor2 = 5) {
@@ -731,9 +607,6 @@ diff_values <- function(raster) {
   # Remove the 'value' column since it's now the row name
   class_freq <- class_freq[, -1]
   
-<<<<<<< HEAD
   return(class_freq)
-=======
-  return(class_percentages)
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+
 }
