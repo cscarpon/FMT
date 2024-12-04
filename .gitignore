@@ -1,9 +1,6 @@
 data/
 .Rproj.user
-<<<<<<< HEAD
 .RData
 .Rhistory
 .RDataTmp
-.RDataTmp1
-=======
->>>>>>> 4300eb0fbd0b14f6922ae98b0aade55a26cdc6a6
+.RDataTmp1 
