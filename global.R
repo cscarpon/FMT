@@ -15,6 +15,9 @@ library(reticulate) # python in r
 library(zip) # zip files
 library(leafem)
 library(stringr)
+library(rmapshaper)
+library(nngeo)
+
 options(shiny.reactlog = TRUE)
 options(shiny.maxRequestSize = 1073741824)
 lidR::set_lidr_threads(6)

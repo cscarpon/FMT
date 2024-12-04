@@ -363,9 +363,7 @@ las_no_noise@data$Cluster <- db$cluster
 # Visualize the clusters
 plot(las_no_noise, color = "Cluster")
 
-
 las_clean <- filter_poi(las, Buildings == 0 & Poles == 0 & Walls == 0 & Bridges == 0 & TransmissionCables == 0)
-
 
 # Step 4: Segment bridges
 las <- segment_shapes(las, shp_plane(k = 10, th1 = 0.1, th2 = 10), "Bridges")
@@ -373,21 +371,14 @@ las <- segment_shapes(las, shp_plane(k = 10, th1 = 0.1, th2 = 10), "Bridges")
 # Visualize the final cleaned point cloud
 plot(las_clean)
 
-
-
 # Extract and visualize buildings (planar surfaces)
 buildings <- filter_poi(las, Classification == 6)  # 6 is the common classification code for buildings
 plot(buildings, color = "Classification")
-
-
-
 
 plot(las_clean_15)
 
 # Segment objects using shapes
 las <- lidR::segment_shapes(las_clean, algorithm = "shape", radius = 2, connectivity = 8)
-
-
 
 # Extract and visualize buildings, street poles, and transmission lines
 buildings <- filter_poi(las, Classification == 6)

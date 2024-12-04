@@ -119,16 +119,27 @@ spatial_container <- setRefClass(
       dtm_clip <- terra::mask(dtm, terra::vect(.self$mask))
       .self$DTM  <- dtm_clip
     },
-    to_chm = function(resolution = 1) {
+    to_chm = function(resolution = 1, footprints) {
       fill_na <- function(x, i=5) { if (is.na(x)[i]) { return(mean(x, na.rm = TRUE)) } else {return(x[i])}}
       w <- matrix(1, 3, 3)
-      no_buildings <- filter_poi(.self$LPC, Classification != 6)
-      nlas <- no_buildings - .self$DTM
-      chm <- rasterize_canopy(nlas, res = resolution, p2r(0.2, na.fill = tin()))
+      nlas <- .self$LPC - .self$DTM
+      chm <- lidR::rasterize_canopy(nlas, res = resolution, p2r(0.2, na.fill = tin()))
       filled <- terra::focal(chm, w, fun = fill_na)
       clamp <- terra::clamp(filled, lower = 0)
-      .self$CHM_raw <- clamp
-      chm_clip <- terra::mask(clamp, terra::vect(.self$mask))
+      bbox_area <- sf::st_bbox(.self$mask) %>% 
+        sf::st_as_sfc(crs = sf::st_crs(.self$mask))
+      
+      if (sf::st_crs(footprints) != sf::st_crs(.self$mask)) {
+        footprints <- sf::st_transform(footprints, sf::st_crs(.self$mask))
+      } 
+      
+      mask_diff <- sf::st_difference(bbox_area, footprints)
+      vect_build <- terra::vect(mask_diff)
+      
+      chm_builds <- terra::mask(clamp, vect_build, updatevalue = 0 )
+      
+      .self$CHM_raw <- chm_builds
+      chm_clip <- terra::mask(chm_builds, terra::vect(.self$mask))
       .self$CHM <- chm_clip
     },
     save_mask = function(path) {

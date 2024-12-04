@@ -1,2 +1,6 @@
 data/
 .Rproj.user
+.RData
+.Rhistory
+.RDataTmp
+.RDataTmp1
