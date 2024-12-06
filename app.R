@@ -6,8 +6,8 @@ source(file.path("./r/spatial_container.R"), local = TRUE)
 source(file.path("./r/meta_obj.R"), local = TRUE)
 
 # Define the UI and server
-ui <- source("ui.R", local = TRUE)$value
-server <- source("server.R", local = TRUE)$value
+ui <- source(file.path("./ui.R"), local = TRUE)$value
+server <- source(file.path("./server.R"), local = TRUE)$value
 
 # Run the app
 shiny::shinyApp(ui = ui, server = server)
