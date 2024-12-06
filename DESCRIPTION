@@ -1,5 +1,5 @@
-Package: FMT
-Title: Forest Monitoring Tool
+Package: cf
+Title: CloudFlux
 Version: 0.1
 Authors@R: person("Christopher", "Scarpone", email = "chris.scarpone@gmail.com", role = c("aut", "cre"))
 Description: A Lidar Tool that is designed to help foresters, scientists, citizen scientists, and anyone who is curious enough to explore.
@@ -8,19 +8,5 @@ License: MIT License
 Encoding: UTF-8
 LazyData: true
 URL: https://cscarpone.ca/
-BugReports: https://github.com/yourproject/FMT/issues
+BugReports: https://github.com/cscarpon/cf/issues
 SystemRequirements: Python (>= 3.9.18)
-Imports: 
-    shiny (>= 1.5.0),
-    rgl,
-    terra,
-    lidR,
-    sf,
-    ggplot2,
-    dplyr,
-    scales,
-    leaflet,
-    reticulate,
-    gridExtra,
-    dplyr,
-    tidyverse
